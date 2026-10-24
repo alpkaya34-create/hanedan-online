@@ -1,0 +1,3567 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="theme-color" content="#070a10">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>HANEDAN: Kader Kayası - Hardcore Action MMORPG</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Nunito:wght@600;700;800;900&display=swap" rel="stylesheet">
+    
+    <!-- FIREBASE SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+
+    <style>
+        :root {
+            --bg-dark: #070a10;
+            --bg-panel: rgba(12, 17, 28, 0.94);
+            --gold: #f59e0b;
+            --gold-light: #fde68a;
+            --primary: #38bdf8;
+            --crimson: #e11d48;
+            --emerald: #10b981;
+            --purple: #a855f7;
+            --border-gold: rgba(245, 158, 11, 0.42);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-tap-highlight-color: transparent;
+            font-family: 'Nunito', sans-serif;
+        }
+
+        body, html {
+            width: 100%;
+            height: 100%;
+            background: #030508;
+            color: #f8fafc;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #app-frame {
+            position: relative;
+            width: 100%;
+            max-width: 450px;
+            height: 100%;
+            background: var(--bg-dark);
+            overflow: hidden;
+            box-shadow: 0 0 70px rgba(0, 0, 0, 0.95);
+            border-left: 1px solid #1e293b;
+            border-right: 1px solid #1e293b;
+        }
+
+        .screen {
+            position: absolute;
+            inset: 0;
+            display: none;
+            flex-direction: column;
+            z-index: 10;
+        }
+
+        .screen.active {
+            display: flex;
+        }
+
+        .rpg-menu-bg {
+            background: 
+                radial-gradient(circle at 50% 15%, rgba(245, 158, 11, 0.25) 0%, rgba(153, 27, 27, 0.18) 40%, #05080f 85%);
+        }
+
+        .menu-header-box {
+            text-align: center;
+            margin-top: 4.5vh;
+            padding: 0 20px;
+        }
+
+        .crest-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 10px;
+            font-weight: 900;
+            letter-spacing: 2px;
+            color: var(--gold-light);
+            background: rgba(245, 158, 11, 0.15);
+            border: 1px solid var(--border-gold);
+            padding: 5px 14px;
+            border-radius: 20px;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+        }
+
+        .game-logo {
+            font-family: 'Cinzel', serif;
+            font-size: 33px;
+            font-weight: 900;
+            color: #fff;
+            letter-spacing: 2px;
+            text-shadow: 0 4px 24px rgba(245, 158, 11, 0.65), 0 2px 6px #000;
+        }
+
+        .game-logo span {
+            color: var(--gold);
+        }
+
+        .game-subtitle {
+            font-size: 11.5px;
+            color: #94a3b8;
+            margin-top: 4px;
+            font-weight: 700;
+        }
+
+        .rpg-card {
+            background: var(--bg-panel);
+            backdrop-filter: blur(14px);
+            border: 1.5px solid var(--border-gold);
+            border-radius: 16px;
+            padding: 16px;
+            margin: 10px 20px;
+            box-shadow: 0 15px 45px rgba(0,0,0,0.85);
+        }
+
+        .input-field {
+            width: 100%;
+            padding: 12px 14px;
+            background: #05080f;
+            border: 1px solid #334155;
+            border-radius: 10px;
+            color: #fff;
+            font-size: 13.5px;
+            font-weight: 700;
+            outline: none;
+            margin-bottom: 10px;
+        }
+
+        .input-field:focus {
+            border-color: var(--gold);
+        }
+
+        .btn {
+            width: 100%;
+            padding: 12px 16px;
+            border: 1px solid rgba(255,255,255,0.14);
+            border-radius: 11px;
+            font-size: 12px;
+            font-weight: 900;
+            letter-spacing: 0.7px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: transform 0.12s, filter 0.2s;
+            text-transform: uppercase;
+        }
+
+        .btn:active { transform: scale(0.97); }
+        .btn svg { width: 17px; height: 17px; flex-shrink: 0; }
+
+        .btn-gold {
+            background: linear-gradient(135deg, #fbbf24 0%, #92400e 100%);
+            color: #120900;
+            border-color: #fef08a;
+            box-shadow: 0 6px 20px rgba(245, 158, 11, 0.35);
+        }
+
+        .btn-crimson {
+            background: linear-gradient(135deg, #e11d48 0%, #881337 100%);
+            color: #fff;
+            border-color: #fda4af;
+            box-shadow: 0 6px 18px rgba(225, 29, 72, 0.35);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #0284c7 0%, #1e3a8a 100%);
+            color: #fff;
+            border-color: #7dd3fc;
+        }
+
+        .btn-emerald {
+            background: linear-gradient(135deg, #10b981 0%, #065f46 100%);
+            color: #fff;
+            border-color: #6ee7b7;
+        }
+
+        .btn-dark {
+            background: #111827;
+            color: #cbd5e1;
+            border-color: #334155;
+        }
+
+        .class-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin: 8px 0 14px 0;
+        }
+
+        .class-card {
+            background: #090e1a;
+            border: 1.5px solid #1e293b;
+            border-radius: 12px;
+            padding: 12px 8px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .class-card.selected {
+            border-color: var(--gold);
+            background: rgba(245, 158, 11, 0.14);
+            box-shadow: 0 0 18px rgba(245, 158, 11, 0.25);
+        }
+
+        .class-card h4 { font-size: 12.5px; color: var(--gold-light); margin-top: 6px; }
+        .class-card p { font-size: 10px; color: #94a3b8; margin-top: 3px; line-height: 1.3; }
+
+        /* OYUN KANVASI VE ÜST HUD */
+        #game-canvas {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+            display: block;
+        }
+
+        .hud-top {
+            position: relative;
+            z-index: 5;
+            padding: max(env(safe-area-inset-top), 8px) 10px 6px 10px;
+            background: linear-gradient(180deg, rgba(4, 6, 11, 0.96) 0%, rgba(4, 6, 11, 0.65) 78%, transparent 100%);
+            pointer-events: none;
+        }
+
+        .hud-top * { pointer-events: auto; }
+
+        .hud-row-1 {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .player-pill {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(10, 15, 25, 0.92);
+            border: 1.5px solid var(--border-gold);
+            border-radius: 12px;
+            padding: 5px 9px;
+            flex: 1;
+        }
+
+        .lvl-orb {
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            background: linear-gradient(135deg, #fbbf24, #78350f);
+            border: 1px solid #fef08a;
+            color: #000;
+            font-family: 'Cinzel', serif;
+            font-weight: 900;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .bars-box { flex: 1; min-width: 0; }
+
+        .name-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 10.5px;
+            font-weight: 900;
+            margin-bottom: 2px;
+            color: #fde68a;
+        }
+
+        .bar-track {
+            width: 100%;
+            height: 7px;
+            background: #04060a;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-bottom: 3px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .hp-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #7f1d1d, #ef4444);
+            width: 100%;
+            transition: width 0.15s;
+        }
+
+        .exp-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #b45309, #fbbf24);
+            width: 0%;
+            transition: width 0.2s;
+        }
+
+        .currency-box {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            background: rgba(10, 15, 25, 0.92);
+            border: 1.5px solid var(--border-gold);
+            padding: 4px 9px;
+            border-radius: 12px;
+            font-size: 10px;
+            font-weight: 900;
+            min-width: 102px;
+            cursor: pointer;
+        }
+
+        .curr-line { display: flex; align-items: center; justify-content: space-between; gap: 5px; }
+        .curr-line svg { width: 12px; height: 12px; flex-shrink: 0; }
+
+        .hud-row-2 {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-top: 6px;
+            gap: 6px;
+        }
+
+        /* SOL ÜST: SEVİYE GÖREV PARŞÖMENİ & BÖLGE */
+        .left-hud-stack {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            flex: 1;
+            max-width: 255px;
+        }
+
+        .zone-badge {
+            background: rgba(10, 15, 25, 0.92);
+            border: 1px solid var(--gold);
+            color: var(--gold-light);
+            padding: 4px 9px;
+            border-radius: 9px;
+            font-size: 10.5px;
+            font-weight: 900;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            cursor: pointer;
+            width: fit-content;
+        }
+
+        .zone-badge svg { width: 13px; height: 13px; }
+
+        .quest-tracker-box {
+            background: linear-gradient(135deg, rgba(16, 24, 42, 0.94) 0%, rgba(10, 14, 24, 0.94) 100%);
+            border: 1px solid rgba(245, 158, 11, 0.45);
+            border-left: 3.5px solid var(--gold);
+            border-radius: 9px;
+            padding: 6px 9px;
+            cursor: pointer;
+            box-shadow: 0 4px 14px rgba(0,0,0,0.65);
+            transition: all 0.2s;
+        }
+
+        .quest-tracker-box.claim-ready {
+            border-color: var(--emerald);
+            border-left-color: var(--emerald);
+            box-shadow: 0 0 15px rgba(16, 185, 129, 0.45);
+        }
+
+        .quest-title-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 10px;
+            font-weight: 900;
+            color: var(--gold-light);
+            margin-bottom: 2px;
+        }
+
+        .quest-desc-text {
+            font-size: 10px;
+            color: #e2e8f0;
+            font-weight: 700;
+            line-height: 1.25;
+        }
+
+        .quest-prog-bar {
+            width: 100%;
+            height: 4px;
+            background: #050811;
+            border-radius: 3px;
+            margin-top: 4px;
+            overflow: hidden;
+        }
+
+        .quest-prog-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #f59e0b, #10b981);
+            width: 0%;
+            transition: width 0.2s;
+        }
+
+        /* SAĞ ÜST: CANLI MİNİ HARİTA (RADAR) + AYARLAR */
+        .right-hud-stack {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 5px;
+        }
+
+        .quick-nav-btns { display: flex; gap: 4px; }
+
+        .mini-icon-btn {
+            background: rgba(10, 15, 25, 0.92);
+            border: 1px solid #334155;
+            color: #e2e8f0;
+            padding: 4px 8px;
+            border-radius: 8px;
+            font-size: 10px;
+            font-weight: 800;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .mini-icon-btn svg { width: 13px; height: 13px; }
+
+        #minimap-box {
+            width: 82px;
+            height: 82px;
+            border-radius: 10px;
+            background: rgba(6, 10, 18, 0.92);
+            border: 1.5px solid var(--border-gold);
+            overflow: hidden;
+            position: relative;
+            box-shadow: 0 4px 14px rgba(0,0,0,0.75);
+        }
+
+        #minimap-canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        #coords-label {
+            position: absolute;
+            bottom: 2px;
+            left: 0;
+            right: 0;
+            text-align: center;
+            font-size: 7.5px;
+            font-weight: 900;
+            color: #cbd5e1;
+            text-shadow: 0 1px 2px #000;
+            pointer-events: none;
+        }
+
+        .online-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: #10b981;
+            box-shadow: 0 0 8px #10b981;
+            display: inline-block;
+        }
+
+        #target-hud {
+            margin: 5px auto 0 auto;
+            width: 94%;
+            background: rgba(20, 10, 18, 0.94);
+            border: 1.5px solid var(--crimson);
+            border-radius: 9px;
+            padding: 4px 10px;
+            display: none;
+        }
+
+        /* ALT KONTROLLER */
+        .hud-bottom {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            z-index: 5;
+            padding: 8px 12px calc(max(env(safe-area-inset-bottom), 8px) + 4px) 12px;
+            background: linear-gradient(0deg, rgba(4, 6, 11, 0.96) 0%, rgba(4, 6, 11, 0.65) 72%, transparent 100%);
+            pointer-events: none;
+        }
+
+        .hud-bottom * { pointer-events: auto; }
+
+        .controls-area {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            margin-bottom: 9px;
+        }
+
+        #joystick-zone {
+            width: 104px;
+            height: 104px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(245, 158, 11, 0.14) 0%, rgba(10, 15, 25, 0.82) 100%);
+            border: 2px solid var(--border-gold);
+            position: relative;
+            touch-action: none;
+        }
+
+        #joystick-knob {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: radial-gradient(circle, #fde68a 0%, #b45309 100%);
+            border: 2px solid #fff;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            box-shadow: 0 0 14px rgba(245, 158, 11, 0.8);
+            pointer-events: none;
+        }
+
+        .skills-cluster {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 6px;
+        }
+
+        .mode-switches { display: flex; gap: 5px; }
+
+        .pill-toggle {
+            padding: 4px 9px;
+            border-radius: 14px;
+            font-size: 9.5px;
+            font-weight: 900;
+            border: 1px solid #334155;
+            background: rgba(10, 15, 25, 0.92);
+            color: #94a3b8;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .pill-toggle svg { width: 11px; height: 11px; }
+        .pill-toggle.active-auto { border-color: var(--emerald); color: var(--emerald); background: rgba(16, 185, 129, 0.15); }
+        .pill-toggle.active-stance { border-color: var(--gold); color: var(--gold); background: rgba(245, 158, 11, 0.15); }
+
+        .skill-buttons-row { display: flex; gap: 6px; align-items: flex-end; }
+
+        .skill-btn {
+            width: 46px;
+            height: 46px;
+            border-radius: 12px;
+            background: rgba(10, 15, 25, 0.95);
+            border: 1.5px solid #475569;
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            cursor: pointer;
+            overflow: hidden;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.8);
+        }
+
+        .skill-btn svg { width: 19px; height: 19px; }
+
+        .skill-btn.attack-main {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            border: 2px solid var(--gold);
+            background: radial-gradient(circle, rgba(245, 158, 11, 0.35) 0%, rgba(10, 15, 25, 0.96) 100%);
+            box-shadow: 0 0 18px rgba(245, 158, 11, 0.45);
+        }
+
+        .skill-btn.attack-main svg { width: 25px; height: 25px; }
+
+        .skill-cd-overlay {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 0%;
+            background: rgba(0, 0, 0, 0.82);
+            pointer-events: none;
+        }
+
+        .skill-label { font-size: 7.5px; font-weight: 900; color: #cbd5e1; margin-top: 2px; }
+
+        .bottom-nav {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 4px;
+            background: rgba(8, 12, 22, 0.96);
+            border: 1.5px solid var(--border-gold);
+            border-radius: 12px;
+            padding: 4px;
+        }
+
+        .nav-btn {
+            background: transparent;
+            border: none;
+            color: #94a3b8;
+            font-size: 8.8px;
+            font-weight: 800;
+            padding: 5px 2px;
+            border-radius: 8px;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 3px;
+        }
+
+        .nav-btn svg { width: 16px; height: 16px; stroke: var(--gold); }
+        .nav-btn:active { background: rgba(245, 158, 11, 0.15); color: #fff; }
+        .nav-btn.store-special {
+            background: linear-gradient(180deg, rgba(225, 29, 72, 0.24) 0%, rgba(136, 19, 55, 0.45) 100%);
+            border: 1px solid rgba(251, 191, 36, 0.55);
+            color: var(--gold-light);
+        }
+
+        /* MODALLAR */
+        .modal-backdrop {
+            position: absolute;
+            inset: 0;
+            background: rgba(3, 5, 10, 0.88);
+            backdrop-filter: blur(6px);
+            z-index: 50;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            padding: 14px;
+        }
+
+        .modal-backdrop.open { display: flex; }
+
+        .modal-card {
+            width: 100%;
+            max-width: 400px;
+            max-height: 88vh;
+            background: #0b101d;
+            border: 1.5px solid var(--gold);
+            border-radius: 18px;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.95);
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #1e293b;
+            padding-bottom: 10px;
+            margin-bottom: 11px;
+        }
+
+        .modal-header h3 {
+            font-family: 'Cinzel', serif;
+            font-size: 13.5px;
+            font-weight: 900;
+            color: var(--gold-light);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .modal-header h3 svg { width: 18px; height: 18px; }
+
+        .close-x {
+            background: rgba(255,255,255,0.06);
+            border: 1px solid #334155;
+            color: #94a3b8;
+            width: 28px;
+            height: 28px;
+            border-radius: 8px;
+            font-weight: 900;
+            cursor: pointer;
+        }
+
+        .anvil-showcase {
+            background: radial-gradient(circle, rgba(245, 158, 11, 0.18) 0%, rgba(8, 12, 22, 0.96) 80%);
+            border: 1px solid var(--border-gold);
+            border-radius: 14px;
+            padding: 12px;
+            text-align: center;
+            margin-bottom: 10px;
+        }
+
+        .weapon-preview-box {
+            width: 64px;
+            height: 64px;
+            margin: 0 auto 6px auto;
+            border-radius: 14px;
+            background: #05080f;
+            border: 2px solid var(--gold);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .weapon-preview-box svg { width: 34px; height: 34px; }
+
+        .setting-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #101729;
+            border: 1px solid #243049;
+            padding: 9px 11px;
+            border-radius: 10px;
+            margin-bottom: 7px;
+        }
+
+        .lang-switch { display: flex; gap: 6px; }
+
+        .lang-btn {
+            padding: 5px 10px;
+            border-radius: 7px;
+            border: 1px solid #334155;
+            background: #05080f;
+            color: #94a3b8;
+            font-weight: 900;
+            font-size: 10.5px;
+            cursor: pointer;
+        }
+
+        .lang-btn.active {
+            border-color: var(--gold);
+            background: rgba(245, 158, 11, 0.18);
+            color: var(--gold-light);
+        }
+
+        /* ========================================== */
+        /* SİNEMATİK DEMİRCİ +BASMA ANİMASYON EKRANI  */
+        /* ========================================== */
+        #forge-cinematic-overlay {
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(circle, rgba(35, 14, 5, 0.96) 0%, rgba(3, 5, 10, 0.99) 85%);
+            z-index: 220;
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 22px;
+            text-align: center;
+        }
+
+        #forge-cinematic-overlay.active { display: flex; }
+
+        .forge-stage-box {
+            width: 155px;
+            height: 155px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(245, 158, 11, 0.28) 0%, rgba(15, 23, 42, 0.8) 70%);
+            border: 2.5px solid var(--gold);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            margin-bottom: 18px;
+            transition: transform 0.12s, box-shadow 0.25s;
+        }
+
+        #forge-hammer-svg {
+            position: absolute;
+            top: -16px;
+            right: -12px;
+            width: 66px;
+            height: 66px;
+            transform-origin: bottom right;
+        }
+
+        @keyframes hammerStrikeAnim {
+            0% { transform: rotate(35deg) scale(1); }
+            45% { transform: rotate(-48deg) scale(1.18); }
+            100% { transform: rotate(25deg) scale(1); }
+        }
+
+        .hammer-hit { animation: hammerStrikeAnim 0.34s ease-in-out; }
+
+        #toast-banner {
+            position: absolute;
+            top: 112px;
+            left: 50%;
+            transform: translateX(-50%) translateY(-15px);
+            background: rgba(10, 15, 28, 0.96);
+            border: 1.5px solid var(--gold);
+            color: #fef08a;
+            padding: 8px 16px;
+            border-radius: 18px;
+            font-size: 11px;
+            font-weight: 900;
+            z-index: 250;
+            opacity: 0;
+            pointer-events: none;
+            transition: all 0.25s ease;
+            white-space: nowrap;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.9);
+        }
+
+        #toast-banner.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+    </style>
+</head>
+<body>
+
+<div id="app-frame">
+    <div id="toast-banner">Sistem Hazır</div>
+
+    <!-- ========================================== -->
+    <!-- SİNEMATİK DEMİRCİ +BASMA HEYECAN EKRANI    -->
+    <!-- ========================================== -->
+    <div id="forge-cinematic-overlay">
+        <span style="font-size: 10.5px; font-weight: 900; letter-spacing: 2.5px; color: var(--gold); margin-bottom: 6px;">🔥 DEMİRCİ OCAĞI KADER ANI</span>
+        <h2 id="forge-anim-title" style="font-family: 'Cinzel', serif; font-size: 19px; color: #fff; margin-bottom: 20px;">Dolunay Pala +0 ➔ +1</h2>
+
+        <div class="forge-stage-box" id="forge-stage-circle">
+            <svg viewBox="0 0 24 24" width="66" height="66" fill="none" stroke="#fbbf24" stroke-width="2.2" id="forge-weapon-svg">
+                <path d="M14.5 17.5L3 6V3h3l11.5 11.5"/><path d="M13 19l6-6"/><path d="M16 16l4 4"/><path d="M19 21l2-2"/>
+            </svg>
+            <svg id="forge-hammer-svg" viewBox="0 0 24 24" fill="none" stroke="#f97316" stroke-width="2.2">
+                <path d="M15 12l-8.5 8.5c-.83.83-2.17.83-3 0a2.12 2.12 0 0 1 0-3L12 9"/>
+                <path d="M17.64 15L22 10.64"/>
+                <path d="M20.91 11.7l-1.25-1.25c-.6-.6-.93-1.4-.93-2.25v-.86L16.01 4.6a5.56 5.56 0 0 0-3.94-1.64H9l.92.82A6.18 6.18 0 0 1 12 8.4v1.56l2 2h2.47l2.26 1.91"/>
+            </svg>
+        </div>
+
+        <p id="forge-anim-status" style="font-size: 13.5px; font-weight: 900; color: #fde68a; min-height: 24px; margin-bottom: 14px;">
+            Çekiç örse iniyor...
+        </p>
+
+        <div class="bar-track" style="width: 82%; height: 10px; margin-bottom: 20px;">
+            <div id="forge-anim-bar" style="height: 100%; width: 0%; background: linear-gradient(90deg, #f97316, #fbbf24); transition: width 0.25s linear;"></div>
+        </div>
+
+        <button class="btn btn-gold" id="forge-anim-close-btn" style="display: none; max-width: 240px;" onclick="closeForgeCinematic()">
+            DEVAM ET
+        </button>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- 1. EKRAN: GİRİŞ & SINIF SEÇİMİ             -->
+    <!-- ========================================== -->
+    <div id="screen-auth" class="screen rpg-menu-bg active">
+        <div class="menu-header-box">
+            <div class="crest-badge">
+                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 2L15 8L21 9L17 14L18 20L12 17L6 20L7 14L3 9L9 8L12 2Z"/></svg>
+                <span>HARDCORE ACTION MMORPG</span>
+            </div>
+            <h1 class="game-logo">HANEDAN <span>ONLINE</span></h1>
+            <p class="game-subtitle" data-i18n="auth_sub">Kader Kayası, Görevler & Sancak Savaşları</p>
+        </div>
+
+        <div class="rpg-card" style="margin-top: auto; margin-bottom: auto;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                <h3 style="font-size: 14px; font-weight: 900; color: var(--gold-light);" data-i18n="login_title">SAVAŞÇI KAYDI</h3>
+                <div class="lang-switch">
+                    <button class="lang-btn active" onclick="setLanguage('tr')" id="auth-lang-tr">TR</button>
+                    <button class="lang-btn" onclick="setLanguage('en')" id="auth-lang-en">EN</button>
+                </div>
+            </div>
+
+            <input type="text" id="login-username" class="input-field" placeholder="Savaşçı Adı (Örn: Alparslan)" maxlength="14">
+            <input type="password" id="login-password" class="input-field" placeholder="Şifre (En az 4 hane)" maxlength="20">
+
+            <label style="font-size: 10.5px; color: #94a3b8; font-weight: 800; display: block; margin-bottom: 6px;" data-i18n="select_class">SAVAŞ OKULUNU SEÇ:</label>
+            <div class="class-grid">
+                <div class="class-card selected" id="card-class-blade" onclick="selectHeroClass('blade')">
+                    <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="#fbbf24" stroke-width="2"><path d="M14.5 17.5L3 6V3h3l11.5 11.5"/><path d="M13 19l6-6"/><path d="M16 16l4 4"/><path d="M19 21l2-2"/></svg>
+                    <h4 data-i18n="class_blade_title">Alp Kılıç Ustası</h4>
+                    <p data-i18n="class_blade_desc">Ağır plaka zırh, Dolunay Pala ve yüksek kanama darbesi.</p>
+                </div>
+                <div class="class-card" id="card-class-monk" onclick="selectHeroClass('monk')">
+                    <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="#38bdf8" stroke-width="2"><path d="M12 2v20"/><path d="M7 7l5-5 5 5"/><circle cx="12" cy="12" r="4"/></svg>
+                    <h4 data-i18n="class_monk_title">Kahin Mızrakçı</h4>
+                    <p data-i18n="class_monk_desc">Uzun menzilli Ejderha Mızrağı ve yıldırım mühürleri.</p>
+                </div>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+                <button class="btn btn-gold" onclick="handleLogin()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+                    <span data-i18n="btn_login_register">SANCAĞA KATIL (GİRİŞ)</span>
+                </button>
+                <button class="btn btn-dark" onclick="handleGuestLogin()">
+                    <span data-i18n="btn_guest">MİSAFİR SAVAŞÇI OLARAK GİR</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- 2. EKRAN: ANA MENÜ                         -->
+    <!-- ========================================== -->
+    <div id="screen-menu" class="screen rpg-menu-bg">
+        <div class="menu-header-box">
+            <div class="crest-badge">
+                <span class="online-dot"></span>
+                <span>FIREBASE + STORAGE SENKRONİZE</span>
+            </div>
+            <h1 class="game-logo">HANEDAN <span>ONLINE</span></h1>
+            <p class="game-subtitle" data-i18n="menu_sub">Zorlu Kasılma, Seviye Görevleri & Devasa Haritalar</p>
+        </div>
+
+        <div class="rpg-card" style="margin-top: 12px;">
+            <div style="display: flex; align-items: center; gap: 14px;">
+                <div style="width: 56px; height: 56px; border-radius: 14px; background: #05080f; border: 2px solid var(--gold); display: flex; align-items: center; justify-content: center;">
+                    <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="#fbbf24" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                </div>
+                <div style="flex: 1;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <h3 id="menu-hero-name" style="font-size: 16px; font-weight: 900; color: #fff;">ALPARSLAN</h3>
+                        <span id="menu-hero-weapon-badge" style="font-size: 11px; font-weight: 900; color: var(--gold-light); background: rgba(245,158,11,0.18); padding: 2px 8px; border-radius: 6px; border: 1px solid var(--border-gold);">Dolunay Pala +0</span>
+                    </div>
+                    <p id="menu-hero-info" style="font-size: 11.5px; color: #94a3b8; margin-top: 3px;">Seviye 1 • Alp Kılıç Ustası</p>
+                    <p id="menu-hero-gold" style="font-size: 12px; color: var(--gold); font-weight: 900; margin-top: 4px;">150 Akçe • 0 Kader Cevheri</p>
+                </div>
+            </div>
+        </div>
+
+        <div style="padding: 0 20px; display: flex; flex-direction: column; gap: 9px; margin-top: auto; margin-bottom: 24px;">
+            <button class="btn btn-gold" style="padding: 15px; font-size: 14px;" onclick="enterGameWorld()">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                <span data-i18n="btn_enter_world">DÜNYAYA GİRİŞ YAP</span>
+            </button>
+            <button class="btn btn-crimson" onclick="openModal('modal-store')">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="9"/><path d="M12 7v10M9 10h6M9 14h6"/></svg>
+                <span data-i18n="btn_tl_store">NESNE MARKET (₺ TL & VIP OTO-AV)</span>
+            </button>
+            <button class="btn btn-primary" onclick="openModal('modal-guide')">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+                <span data-i18n="btn_guide">OYUN REHBERİ & ZORLUK SİSTEMİ</span>
+            </button>
+            <button class="btn btn-dark" onclick="openModal('modal-settings')">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.93 4.93l2.12 2.12M16.95 16.95l2.12 2.12M2 12h3M19 12h3"/></svg>
+                <span data-i18n="btn_settings">AYARLAR & DİL (LANGUAGE)</span>
+            </button>
+            <button class="btn btn-dark" style="color: #fda4af;" onclick="logoutAccount()">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                <span data-i18n="btn_logout">OTURUMU KAPAT</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- 3. EKRAN: OYUN DÜNYASI                     -->
+    <!-- ========================================== -->
+    <div id="screen-game" class="screen">
+        <canvas id="game-canvas"></canvas>
+
+        <!-- ÜST HUD -->
+        <div class="hud-top">
+            <div class="hud-row-1">
+                <div class="player-pill">
+                    <div class="lvl-orb" id="hud-lvl">1</div>
+                    <div class="bars-box">
+                        <div class="name-row">
+                            <span id="hud-name">SAVAŞÇI</span>
+                            <span id="hud-hp-text" style="color: #fda4af;">550/550</span>
+                        </div>
+                        <div class="bar-track"><div class="hp-fill" id="hud-hp-bar"></div></div>
+                        <div class="bar-track" style="height: 4px; margin-bottom: 0;"><div class="exp-fill" id="hud-exp-bar"></div></div>
+                    </div>
+                </div>
+
+                <div class="currency-box" onclick="openModal('modal-store')" title="Nesne Market">
+                    <div class="curr-line" style="color: var(--gold-light);">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="#fbbf24" stroke-width="2.2"><circle cx="12" cy="12" r="9"/><path d="M12 7v10M9 10h6M9 14h6"/></svg>
+                        <span id="hud-gold">150</span>
+                    </div>
+                    <div class="curr-line" style="color: var(--primary);">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2.2"><polygon points="12 2 2 9 12 22 22 9 12 2"/></svg>
+                        <span id="hud-essence">0</span>
+                    </div>
+                    <div class="curr-line" style="color: #c084fc;">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="#c084fc" stroke-width="2.2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg>
+                        <span id="hud-scrolls">1 Kutsama</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="hud-row-2">
+                <!-- Sol Üst: Bölge + Seviye Görev Parşömeni -->
+                <div class="left-hud-stack">
+                    <div class="zone-badge" onclick="openModal('modal-map')">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 21h18M5 21V7l7-4 7 4v14"/></svg>
+                        <span id="hud-zone-name">Sancak Köyü</span>
+                        <span id="online-pvp-counter" style="font-size: 9px; color: #10b981; display: none;">(Canlı)</span>
+                        <span style="font-size: 8px;">▼</span>
+                    </div>
+
+                    <!-- SEVİYE GÖREV PANELİ -->
+                    <div class="quest-tracker-box" id="quest-tracker-card" onclick="handleQuestClick()">
+                        <div class="quest-title-row">
+                            <span id="quest-hud-header">📜 SEVİYE 1 GÖREVİ</span>
+                            <span id="quest-hud-count" style="color:#38bdf8;">0 / 6</span>
+                        </div>
+                        <div class="quest-desc-text" id="quest-hud-desc">Bozkırda 6 Yabani Kurt Avla</div>
+                        <div class="quest-prog-bar">
+                            <div class="quest-prog-fill" id="quest-hud-fill"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Sağ Üst: Menü + Canlı Mini-Harita (Radar) -->
+                <div class="right-hud-stack">
+                    <div class="quick-nav-btns">
+                        <button class="mini-icon-btn" onclick="openModal('modal-store')" style="border-color: var(--gold); color: var(--gold-light);">
+                            <span>₺ MARKET</span>
+                        </button>
+                        <button class="mini-icon-btn" onclick="openModal('modal-settings')">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.93 4.93l2.12 2.12M16.95 16.95l2.12 2.12M2 12h3M19 12h3"/></svg>
+                        </button>
+                        <button class="mini-icon-btn" onclick="returnToMainMenu()" data-i18n="hud_menu">MENÜ</button>
+                    </div>
+
+                    <div id="minimap-box" onclick="openModal('modal-map')">
+                        <canvas id="minimap-canvas" width="82" height="82"></canvas>
+                        <div id="coords-label">0 , 0</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- HEDEF CAN BARI -->
+            <div id="target-hud">
+                <div style="display: flex; justify-content: space-between; font-size: 10px; font-weight: 900; margin-bottom: 2px;">
+                    <span id="target-name" style="color: #fda4af;">KADER KAYASI</span>
+                    <span id="target-hp-text" style="color: #cbd5e1;">2500 / 2500</span>
+                </div>
+                <div class="bar-track" style="height: 7px; margin-bottom: 0;">
+                    <div id="target-hp-bar" style="height: 100%; width: 100%; background: linear-gradient(90deg, #9333ea, #e11d48);"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ALT KONTROLLER -->
+        <div class="hud-bottom">
+            <div class="controls-area">
+                <div id="joystick-zone">
+                    <div id="joystick-knob"></div>
+                </div>
+
+                <div class="skills-cluster">
+                    <div class="mode-switches">
+                        <button class="pill-toggle" id="btn-toggle-auto" onclick="toggleAutoMode()">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg>
+                            <span id="auto-btn-txt">🔒 OTO AV (VIP)</span>
+                        </button>
+                        <button class="pill-toggle active-stance" id="btn-toggle-stance" onclick="toggleStance()">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+                            <span id="stance-btn-txt">HAVA KILICI</span>
+                        </button>
+                    </div>
+
+                    <div class="skill-buttons-row">
+                        <div class="skill-btn" onclick="usePotion()" style="border-color: #ef4444; width: 44px; height: 44px;">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2"><path d="M10 2v6L5 19a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3L14 8V2"/><line x1="8.5" y1="2" x2="15.5" y2="2"/><path d="M7 15h10"/></svg>
+                            <span class="skill-label" id="pot-count-label">x10</span>
+                        </div>
+                        <div class="skill-btn" onclick="triggerDash()" style="border-color: #38bdf8; width: 44px; height: 44px;">
+                            <div class="skill-cd-overlay" id="cd-dash"></div>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2"><path d="M5 12h14"/><path d="M13 6l6 6-6 6"/><path d="M2 18h5"/><path d="M2 6h5"/></svg>
+                            <span class="skill-label" data-i18n="skill_dash">HAMLE</span>
+                        </div>
+                        <div class="skill-btn" onclick="useSkill(1)" style="border-color: var(--purple);">
+                            <div class="skill-cd-overlay" id="cd-skill1"></div>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="#c084fc" stroke-width="2.2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/><polyline points="22 2 22 8 16 8"/></svg>
+                            <span class="skill-label" data-i18n="skill_whirl">ÇEVİRME</span>
+                        </div>
+                        <div class="skill-btn" onclick="useSkill(2)" style="border-color: var(--primary);">
+                            <div class="skill-cd-overlay" id="cd-skill2"></div>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2.2"><polygon points="12 2 15 9 22 9 16 14 18 21 12 17 6 21 8 14 2 9 9 9 12 2"/></svg>
+                            <span class="skill-label" data-i18n="skill_nova">RUH VURUŞU</span>
+                        </div>
+                        <div class="skill-btn attack-main" onpointerdown="manualAttack()">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="#fbbf24" stroke-width="2.4"><path d="M14.5 17.5L3 6V3h3l11.5 11.5"/><path d="M13 19l6-6"/><path d="M16 16l4 4"/><path d="M19 21l2-2"/></svg>
+                            <span class="skill-label" style="color: var(--gold-light);" data-i18n="skill_hit">SALDIR</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bottom-nav">
+                <button class="nav-btn" onclick="openModal('modal-anvil')">
+                    <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M15 12l-8.5 8.5c-.83.83-2.17.83-3 0a2.12 2.12 0 0 1 0-3L12 9"/><path d="M17.64 15L22 10.64"/></svg>
+                    <span data-i18n="nav_anvil">DEMİRCİ</span>
+                </button>
+                <button class="nav-btn" onclick="openModal('modal-market')">
+                    <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+                    <span data-i18n="nav_market">PAZAR</span>
+                </button>
+                <button class="nav-btn store-special" onclick="openModal('modal-store')">
+                    <svg viewBox="0 0 24 24" fill="none" stroke-width="2.2"><circle cx="12" cy="12" r="9"/><path d="M12 7v10M9 10h6M9 14h6"/></svg>
+                    <span>₺ MARKET</span>
+                </button>
+                <button class="nav-btn" onclick="openModal('modal-char')">
+                    <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                    <span data-i18n="nav_char">SAVAŞÇI</span>
+                </button>
+                <button class="nav-btn" onclick="openModal('modal-map')">
+                    <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg>
+                    <span data-i18n="nav_map">IŞINLAN</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- MODAL 1: DEMİRCİ OCAĞI (İHTİMALLİ +BASMA)  -->
+    <!-- ========================================== -->
+    <div id="modal-anvil" class="modal-backdrop">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 12l-8.5 8.5c-.83.83-2.17.83-3 0a2.12 2.12 0 0 1 0-3L12 9"/><path d="M17.64 15L22 10.64"/></svg>
+                    <span data-i18n="anvil_title">KÖY DEMİRCİSİ & EFSUN</span>
+                </h3>
+                <button class="close-x" onclick="closeAllModals()">✕</button>
+            </div>
+
+            <div class="anvil-showcase">
+                <div class="weapon-preview-box" id="anvil-weapon-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="#fbbf24" stroke-width="2.2"><path d="M14.5 17.5L3 6V3h3l11.5 11.5"/><path d="M13 19l6-6"/><path d="M16 16l4 4"/><path d="M19 21l2-2"/></svg>
+                </div>
+                <h4 id="anvil-weapon-name" style="font-size: 16px; font-weight: 900; color: var(--gold-light);">Dolunay Pala +0</h4>
+                <p id="anvil-weapon-stats" style="font-size: 12px; color: #cbd5e1; margin-top: 3px;">Saldırı Değeri: 38 ➔ <strong style="color: var(--emerald);">49</strong></p>
+                
+                <!-- METİN2 ORTALAMA ZARAR & BECERİ HASARI -->
+                <div style="margin-top: 7px; background: rgba(0,0,0,0.55); border: 1px solid #334155; border-radius: 8px; padding: 6px; font-size: 11px;">
+                    <div style="color: #10b981; font-weight: 900;" id="anvil-ort-text">Ortalama Zarar: +8%</div>
+                    <div style="color: #38bdf8; font-weight: 800; font-size: 10px;" id="anvil-bec-text">Beceri Hasarı: +2%</div>
+                </div>
+            </div>
+
+            <div style="background: #070b14; border: 1px solid #1e293b; border-radius: 12px; padding: 10px; margin-bottom: 10px;">
+                <div style="display: flex; justify-content: space-between; font-size: 12px; font-weight: 900; margin-bottom: 6px;">
+                    <span data-i18n="anvil_chance">Gerçek Başarı İhtimali:</span>
+                    <span id="anvil-chance-val" style="color: var(--emerald); font-size: 13.5px;">%90</span>
+                </div>
+
+                <!-- Kademeli Düşen İhtimal Tablosu Özeti -->
+                <div style="font-size: 9px; color: #94a3b8; margin-bottom: 7px; background: rgba(255,255,255,0.03); padding: 5px 7px; border-radius: 6px;">
+                    +1:%90 | +2:%80 | +3:%70 | +4:%60 | +5:%50 | +6:%40 | +7:%25 | +8:%15 | +9:%6
+                </div>
+
+                <label style="display: flex; align-items: center; justify-content: space-between; background: rgba(168, 85, 247, 0.14); border: 1px solid rgba(168, 85, 247, 0.45); padding: 7px 10px; border-radius: 8px; cursor: pointer; font-size: 11px; font-weight: 800;">
+                    <span>📜 Kutsama Kağıdı Kullan (Yanarsa +0 Olmaz)</span>
+                    <input type="checkbox" id="chk-use-blessing" checked style="width: 17px; height: 17px; accent-color: #a855f7;">
+                </label>
+
+                <p style="font-size: 9.5px; color: #64748b; margin-top: 6px;" data-i18n="anvil_safe_note">
+                    * Kutsama Kağıdı olmadan basarsan eşya yandığında +0'a sıfırlanır! Kutsama Kağıdı ile sadece 1 seviye düşer.
+                </p>
+            </div>
+
+            <div style="display: flex; justify-content: space-between; background: rgba(255,255,255,0.03); padding: 8px 10px; border-radius: 10px; margin-bottom: 10px; font-size: 11px; font-weight: 800;">
+                <span><span data-i18n="cost_gold">Akçe:</span> <strong id="anvil-cost-gold" style="color: var(--gold-light);">120</strong></span>
+                <span><span data-i18n="cost_essence">Cevher:</span> <strong id="anvil-cost-ess" style="color: var(--primary);">1</strong></span>
+                <span>Kutsama: <strong id="anvil-owned-scrolls" style="color: #c084fc;">1</strong></span>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 7px;">
+                <button class="btn btn-gold" onclick="upgradeWeaponAction()" data-i18n="btn_upgrade_now">🔨 SİLAHI ÖRSTE DÖV (+BAS)</button>
+                <button class="btn btn-primary" onclick="rerollWeaponOrt()" id="btn-efsunla">✨ EFSUN NESNESİ İLE ORTALAMA DEĞİŞTİR (1)</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- MODAL 2: TÜRK LİRASI (₺) NESNE MARKET      -->
+    <!-- ========================================== -->
+    <div id="modal-store" class="modal-backdrop">
+        <div class="modal-card" style="border-color: var(--crimson);">
+            <div class="modal-header">
+                <h3 style="color: #fda4af;">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="#fbbf24" stroke-width="2.2"><circle cx="12" cy="12" r="9"/><path d="M12 7v10M9 10h6M9 14h6"/></svg>
+                    <span>HANEDAN NESNE MARKET (₺ TL)</span>
+                </h3>
+                <button class="close-x" onclick="closeAllModals()">✕</button>
+            </div>
+
+            <!-- VIP OTO-AV ABONELİK KARTI -->
+            <div style="background: linear-gradient(135deg, rgba(245, 158, 11, 0.22) 0%, rgba(120, 53, 15, 0.38) 100%); border: 2px solid var(--gold); border-radius: 14px; padding: 12px; margin-bottom: 10px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                    <span style="font-size: 13px; font-weight: 900; color: var(--gold-light);">👑 VIP HÜKÜMDAR & OTO-AV PAKETİ</span>
+                    <span id="vip-status-pill" style="font-size: 9.5px; font-weight: 900; background: #e11d48; color: #fff; padding: 2px 7px; border-radius: 6px;">PASİF</span>
+                </div>
+                <ul style="font-size: 10.5px; color: #fef08a; padding-left: 16px; line-height: 1.5; margin-bottom: 10px; font-weight: 700;">
+                    <li><strong>Sınırsız Otomatik Av (OTO-AV)</strong> Özelliğini Açar!</li>
+                    <li>Demircide <strong>+%8 Ekstra +Basma Şansı</strong> Verir!</li>
+                    <li>Canavarlardan <strong>+%50 Fazla EXP ve Akçe</strong> Düşer!</li>
+                    <li>Anında <strong>+5 Kutsama Kağıdı & +10 Kader Cevheri</strong> Hediye!</li>
+                </ul>
+                <button class="btn btn-gold" id="btn-buy-vip" onclick="buyRealMoneyPack('vip_monthly', 149.99)">
+                    ₺149,99 / AY — VIP & OTO-AV AKTİF ET
+                </button>
+            </div>
+
+            <!-- KADER CEVHERİ PAKETİ -->
+            <div class="setting-row" style="border-color: #38bdf8;">
+                <div>
+                    <div style="font-size: 12px; font-weight: 900; color: #7dd3fc;">💎 15x Kader Cevheri + 3x Kutsama Kağıdı</div>
+                    <div style="font-size: 10px; color: #94a3b8;">Demircide +9 basmak için cevher paketi</div>
+                </div>
+                <button class="btn btn-primary" style="width: auto; padding: 8px 12px; font-size: 11px;" onclick="buyRealMoneyPack('ore_pack', 39.99)">
+                    ₺39,99 AL
+                </button>
+            </div>
+
+            <!-- EFSUN NESNESİ & KUTSAMA PAKETİ -->
+            <div class="setting-row" style="border-color: #a855f7;">
+                <div>
+                    <div style="font-size: 12px; font-weight: 900; color: #d8b4fe;">✨ 10x Efsun Nesnesi + 6x Kutsama Kağıdı</div>
+                    <div style="font-size: 10px; color: #94a3b8;">Silahına +%45 Ortalama Zarar getir!</div>
+                </div>
+                <button class="btn btn-emerald" style="width: auto; padding: 8px 12px; font-size: 11px;" onclick="buyRealMoneyPack('efsun_pack', 79.99)">
+                    ₺79,99 AL
+                </button>
+            </div>
+
+            <!-- İMPARATOR HAZİNESİ -->
+            <div class="setting-row" style="border-color: var(--gold);">
+                <div>
+                    <div style="font-size: 12px; font-weight: 900; color: var(--gold-light);">🪙 15.000 Akçe + 30x Cevher + 15x Kutsama</div>
+                    <div style="font-size: 10px; color: #94a3b8;">Büyük +9 Dolunay basma hazinesi</div>
+                </div>
+                <button class="btn btn-gold" style="width: auto; padding: 8px 12px; font-size: 11px;" onclick="buyRealMoneyPack('emperor_pack', 199.99)">
+                    ₺199,99 AL
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- MODAL 3: CANLI ONLINE PAZAR (FIREBASE)     -->
+    <!-- ========================================== -->
+    <div id="modal-market" class="modal-backdrop">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+                    <span data-i18n="market_title">SANCAK ONLINE PAZAR YERİ</span>
+                </h3>
+                <button class="close-x" onclick="closeAllModals()">✕</button>
+            </div>
+
+            <div style="background: #101729; border: 1px solid var(--border-gold); border-radius: 12px; padding: 10px; margin-bottom: 12px;">
+                <div style="font-size: 11px; font-weight: 900; color: var(--gold-light); margin-bottom: 6px;">
+                    TEZGAHA EŞYA KOY (TÜM OYUNCULAR GÖRÜR)
+                </div>
+                <div style="display: flex; gap: 6px; margin-bottom: 6px;">
+                    <select id="market-sell-type" class="input-field" style="margin: 0; padding: 8px; font-size: 11.5px; flex: 1.3;">
+                        <option value="essence">1x Kader Cevheri</option>
+                        <option value="scroll">1x Kutsama Kağıdı</option>
+                        <option value="potion5">5x Kırmızı İksir</option>
+                        <option value="loot">1x Kurt Postu / Ork Dişi</option>
+                    </select>
+                    <input type="number" id="market-sell-price" class="input-field" placeholder="Fiyat (Akçe)" value="180" min="20" max="999999" style="margin: 0; padding: 8px; font-size: 12px; flex: 1;">
+                </div>
+                <button class="btn btn-gold" style="padding: 8px; font-size: 11px;" onclick="createOnlineMarketListing()">
+                    ONLINE PAZARA İLAN VER
+                </button>
+            </div>
+
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                <span style="font-size: 11px; font-weight: 900; color: var(--primary);">CANLI OYUNCU TEZGAHLARI</span>
+                <span style="font-size: 10px; color: #10b981;">● Firebase Canlı</span>
+            </div>
+
+            <div id="online-market-list" style="display: flex; flex-direction: column; gap: 6px; max-height: 170px; overflow-y: auto; margin-bottom: 12px; padding-right: 4px;"></div>
+
+            <div style="border-top: 1px solid #1e293b; padding-top: 10px; display: flex; justify-content: space-between; align-items: center; gap: 6px;">
+                <span style="font-size: 11px; font-weight: 800; color: #cbd5e1;">
+                    <span data-i18n="loot_bag">Ganimet:</span> <strong id="bag-loot-count" style="color: var(--gold);">0</strong>
+                </span>
+                <div style="display: flex; gap: 6px;">
+                    <button class="btn btn-dark" style="width: auto; padding: 7px 10px; font-size: 10px;" onclick="buyNpcPotions()">5 İKSİR AL (40 A.)</button>
+                    <button class="btn btn-primary" style="width: auto; padding: 7px 10px; font-size: 10px;" onclick="sellAllLoot()" data-i18n="btn_sell_loot">GANİMETİ SAT</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- MODAL 4: SAVAŞÇI STATÜLERİ                 -->
+    <!-- ========================================== -->
+    <div id="modal-char" class="modal-backdrop">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                    <span data-i18n="char_title">SAVAŞÇI STATÜLERİ</span>
+                </h3>
+                <button class="close-x" onclick="closeAllModals()">✕</button>
+            </div>
+
+            <div id="char-stats-details" style="display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px;"></div>
+
+            <button class="btn btn-gold" onclick="allocateStatPoint()" id="btn-stat-upgrade">STR & VIT EĞİTİMİ AL (120 AKÇE)</button>
+        </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- MODAL 5: IŞINLANMA YÜZÜĞÜ (DEVASA HARİTA)  -->
+    <!-- ========================================== -->
+    <div id="modal-map" class="modal-backdrop">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg>
+                    <span data-i18n="map_title">KADİM IŞINLANMA YÜZÜĞÜ (4000x4000)</span>
+                </h3>
+                <button class="close-x" onclick="closeAllModals()">✕</button>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+                <div class="setting-row" style="cursor: pointer; border-color: var(--emerald);" onclick="changeMapZone('village')">
+                    <div>
+                        <h4 style="color: var(--emerald); font-size: 13.5px;" data-i18n="zone_village">1. Sancak Köyü (Güvenli Kale & Nehir)</h4>
+                        <p style="font-size: 10.5px; color: #94a3b8;" data-i18n="zone_village_desc">Demirci Ocağı, Online Pazar, akan nehir köprüleri ve can yenileme.</p>
+                    </div>
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#10b981" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+                </div>
+
+                <div class="setting-row" style="cursor: pointer; border-color: var(--primary);" onclick="changeMapZone('valley')">
+                    <div>
+                        <h4 style="color: var(--primary); font-size: 13.5px;" data-i18n="zone_valley">2. Alacakaranlık Bozkırı (Devasa Kasılma Alanı)</h4>
+                        <p style="font-size: 10.5px; color: #94a3b8;" data-i18n="zone_valley_desc">Merkezde Kurtlar (Lv.1-4), dış çemberde Orklar (Lv.6+) ve Kader Kayaları.</p>
+                    </div>
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#38bdf8" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+                </div>
+
+                <div class="setting-row" style="cursor: pointer; border-color: var(--crimson); background: rgba(225, 29, 72, 0.1);" onclick="changeMapZone('pk')">
+                    <div>
+                        <div style="display: flex; align-items: center; gap: 6px;">
+                            <span class="online-dot"></span>
+                            <h4 style="color: #fda4af; font-size: 13.5px;" data-i18n="zone_pk">3. Kızıl Er Meydanı (CANLI ONLINE PVP)</h4>
+                        </div>
+                        <p style="font-size: 10.5px; color: #fecdd3; margin-top: 2px;" data-i18n="zone_pk_desc">Gerçek oyuncularla serbest savaş, Gölge İnfazcıları ve %250 Cevher Drop!</p>
+                    </div>
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#fda4af" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- MODAL 6: AYARLAR & DİL                     -->
+    <!-- ========================================== -->
+    <div id="modal-settings" class="modal-backdrop">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3 data-i18n="settings_title">SİSTEM AYARLARI</h3>
+                <button class="close-x" onclick="closeAllModals()">✕</button>
+            </div>
+
+            <div class="setting-row">
+                <span style="font-size: 12.5px; font-weight: 800;" data-i18n="set_lang">Oyun Dili / Language</span>
+                <div class="lang-switch">
+                    <button class="lang-btn active" id="set-lang-tr" onclick="setLanguage('tr')">TÜRKÇE</button>
+                    <button class="lang-btn" id="set-lang-en" onclick="setLanguage('en')">ENGLISH</button>
+                </div>
+            </div>
+
+            <div class="setting-row">
+                <span style="font-size: 12.5px; font-weight: 800;" data-i18n="set_sfx">Ses Efektleri (SFX)</span>
+                <input type="checkbox" id="chk-sfx" checked onchange="toggleSfx(this.checked)" style="width: 18px; height: 18px; accent-color: var(--gold);">
+            </div>
+
+            <div class="setting-row" style="flex-direction: column; align-items: stretch; gap: 6px;">
+                <div style="display: flex; justify-content: space-between; font-size: 12px; font-weight: 800;">
+                    <span data-i18n="set_autopot">Oto-Av Kırmızı İksir Eşiği (HP %)</span>
+                    <strong id="autopot-val-label" style="color: var(--emerald);">%45</strong>
+                </div>
+                <input type="range" id="slider-autopot" min="15" max="80" value="45" oninput="updateAutoPotThreshold(this.value)" style="accent-color: var(--emerald);">
+            </div>
+
+            <button class="btn btn-gold" style="margin-top: 8px;" onclick="closeAllModals()" data-i18n="btn_close">KAYDET VE KAPAT</button>
+        </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- MODAL 7: REHBER                            -->
+    <!-- ========================================== -->
+    <div id="modal-guide" class="modal-backdrop">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3 data-i18n="guide_title">HANEDAN SAVAŞ REHBERİ</h3>
+                <button class="close-x" onclick="closeAllModals()">✕</button>
+            </div>
+            <div style="font-size: 12px; color: #cbd5e1; line-height: 1.55; display: flex; flex-direction: column; gap: 10px;">
+                <p><strong>1. İhtimalli +Basma & Demirci Heyecanı:</strong> +1 (%90) ile başlar ve her seviyede ihtimal düşerek +9'da (%6) seviyesine iner. Kutsama Kağıdı kullanmazsan eşyan yandığında +0'a sıfırlanır!</p>
+                <p><strong>2. Metin2 Ortalama Zarar Efsunu:</strong> Dolunay Pala ve Ejderha Mızrağı silahlarında Ortalama Zarar ve Beceri Hasarı bulunur. Efsun Nesnesi ile +%40 üzeri Ortalama Zarar yakalamaya çalış!</p>
+                <p><strong>3. TL Nesne Market & VIP Oto-Av:</strong> Otomatik kasılma (OTO-AV) VIP abonelik ayrıcalığıdır. Nesne Market üzerinden TL ile VIP, Kader Cevheri ve Kutsama paketleri alabilirsin.</p>
+            </div>
+            <button class="btn btn-gold" style="margin-top: 14px;" onclick="closeAllModals()">ANLADIM</button>
+        </div>
+    </div>
+</div>
+
+<script>
+// ============================================================================
+// 1. FIREBASE BAĞLANTISI (CANLI PVP + CANLI PAZAR + GÖREV & OYUNCU KAYDI)
+// ============================================================================
+const firebaseConfig = {
+    apiKey: "AIzaSyDBoPk43LcT9qPtZkXXpyrfRpdJmWDnvrA",
+    authDomain: "cts-tycoon.firebaseapp.com",
+    databaseURL: "https://cts-tycoon-default-rtdb.europe-west1.firebasedatabase.app",
+    projectId: "cts-tycoon",
+    storageBucket: "cts-tycoon.firebasestorage.app",
+    messagingSenderId: "4333586201",
+    appId: "1:4333586201:web:8535dcd2345ec8ae272788"
+};
+
+let db = null;
+try {
+    if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+    db = firebase.database();
+} catch (e) { console.warn("Çevrimdışı mod:", e); }
+
+let playerUid = localStorage.getItem('hanedan_v2_uid');
+if (!playerUid) {
+    playerUid = 'w_' + Date.now() + '_' + Math.floor(Math.random() * 9999);
+    localStorage.setItem('hanedan_v2_uid', playerUid);
+}
+
+// ============================================================================
+// 2. DİL SÖZLÜĞÜ (TR & EN)
+// ============================================================================
+const I18N = {
+    tr: {
+        auth_sub: "Kader Kayası, Görevler & Sancak Savaşları",
+        login_title: "SAVAŞÇI KAYDI",
+        select_class: "SAVAŞ OKULUNU SEÇ:",
+        class_blade_title: "Alp Kılıç Ustası",
+        class_blade_desc: "Ağır plaka zırh, Dolunay Pala ve yüksek kanama darbesi.",
+        class_monk_title: "Kahin Mızrakçı",
+        class_monk_desc: "Uzun menzilli Ejderha Mızrağı ve yıldırım mühürleri.",
+        btn_login_register: "SANCAĞA KATIL (GİRİŞ)",
+        btn_guest: "MİSAFİR SAVAŞÇI OLARAK GİR",
+        menu_sub: "Zorlu Kasılma, Seviye Görevleri & Devasa Haritalar",
+        btn_enter_world: "DÜNYAYA GİRİŞ YAP",
+        btn_tl_store: "NESNE MARKET (₺ TL & VIP OTO-AV)",
+        btn_guide: "OYUN REHBERİ & ZORLUK SİSTEMİ",
+        btn_settings: "AYARLAR & DİL (LANGUAGE)",
+        btn_logout: "OTURUMU KAPAT",
+        hud_menu: "MENÜ",
+        skill_dash: "HAMLE",
+        skill_whirl: "ÇEVİRME",
+        skill_nova: "RUH VURUŞU",
+        skill_hit: "SALDIR",
+        nav_anvil: "DEMİRCİ",
+        nav_market: "PAZAR",
+        nav_char: "SAVAŞÇI",
+        nav_map: "IŞINLAN",
+        anvil_title: "KÖY DEMİRCİSİ & EFSUN",
+        anvil_chance: "Gerçek Başarı İhtimali:",
+        anvil_safe_note: "* Kutsama Kağıdı olmadan basarsan eşya yandığında +0'a sıfırlanır! Kutsama Kağıdı ile sadece 1 seviye düşer.",
+        cost_gold: "Akçe:",
+        cost_essence: "Cevher:",
+        btn_upgrade_now: "🔨 SİLAHI ÖRSTE DÖV (+BAS)",
+        market_title: "SANCAK ONLINE PAZAR YERİ",
+        loot_bag: "Ganimet:",
+        btn_sell_loot: "GANİMETİ SAT",
+        char_title: "SAVAŞÇI STATÜLERİ",
+        map_title: "KADİM IŞINLANMA YÜZÜĞÜ (4000x4000)",
+        zone_village: "1. Sancak Köyü (Güvenli Kale & Nehir)",
+        zone_village_desc: "Demirci Ocağı, Online Pazar, akan nehir köprüleri ve can yenileme.",
+        zone_valley: "2. Alacakaranlık Bozkırı (Devasa Kasılma Alanı)",
+        zone_valley_desc: "Merkezde Kurtlar (Lv.1-4), dış çemberde Orklar (Lv.6+) ve Kader Kayaları.",
+        zone_pk: "3. Kızıl Er Meydanı (CANLI ONLINE PVP)",
+        zone_pk_desc: "Gerçek oyuncularla serbest savaş, Gölge İnfazcıları ve %250 Cevher Drop!",
+        settings_title: "SİSTEM AYARLARI",
+        set_lang: "Oyun Dili / Language",
+        set_sfx: "Ses Efektleri (SFX)",
+        set_autopot: "Oto-Av Kırmızı İksir Eşiği (HP %)",
+        btn_close: "KAYDET VE KAPAT",
+        guide_title: "HANEDAN SAVAŞ REHBERİ",
+        weapon_blade: "Dolunay Pala",
+        weapon_monk: "Ejderha Mızrağı",
+        zone_short_village: "Sancak Köyü (Güvenli)",
+        zone_short_valley: "Alacakaranlık Bozkırı",
+        zone_short_pk: "Kızıl Er Meydanı (PVP)"
+    },
+    en: {
+        auth_sub: "Stone of Fate, Quests & Banner Wars",
+        login_title: "WARRIOR REGISTRATION",
+        select_class: "CHOOSE MARTIAL SCHOOL:",
+        class_blade_title: "Vanguard Blader",
+        class_blade_desc: "Heavy plate armor, Fullmoon Blade & bleed strikes.",
+        class_monk_title: "Mystic Lancer",
+        class_monk_desc: "Long-range Dragon Spear & lightning seals.",
+        btn_login_register: "JOIN THE BANNER (LOGIN)",
+        btn_guest: "ENTER AS GUEST WARRIOR",
+        menu_sub: "Hardcore Progression, Level Quests & Vast Maps",
+        btn_enter_world: "ENTER GAME WORLD",
+        btn_tl_store: "ITEM SHOP (₺ TL & VIP AUTO-HUNT)",
+        btn_guide: "GAME GUIDE & HARDCORE RULES",
+        btn_settings: "SETTINGS & LANGUAGE",
+        btn_logout: "LOGOUT SESSION",
+        hud_menu: "MENU",
+        skill_dash: "CHARGE",
+        skill_whirl: "WHIRLWIND",
+        skill_nova: "SPIRIT STRIKE",
+        skill_hit: "STRIKE",
+        nav_anvil: "BLACKSMITH",
+        nav_market: "BAZAAR",
+        nav_char: "WARRIOR",
+        nav_map: "TELEPORT",
+        anvil_title: "MASTER BLACKSMITH & ENCHANT",
+        anvil_chance: "True Success Rate:",
+        anvil_safe_note: "* Without a Blessing Scroll, failure resets the weapon to +0! With a Scroll, it only drops 1 level.",
+        cost_gold: "Coins:",
+        cost_essence: "Ore:",
+        btn_upgrade_now: "🔨 FORGE WEAPON ON ANVIL (+)",
+        market_title: "LIVE ONLINE BAZAAR",
+        loot_bag: "Loot:",
+        btn_sell_loot: "SELL LOOT",
+        char_title: "WARRIOR ATTRIBUTES",
+        map_title: "ANCIENT TELEPORT RING (4000x4000)",
+        zone_village: "1. Bannerhold Village (Safe Citadel & River)",
+        zone_village_desc: "Blacksmith Forge, Online Bazaar, river bridges & HP recovery.",
+        zone_valley: "2. Twilight Steppe (Vast Hunting Grounds)",
+        zone_valley_desc: "Wolves near center (Lv.1-4), Orcs & Fate Stones in outer rings.",
+        zone_pk: "3. Crimson Crucible (LIVE ONLINE PVP)",
+        zone_pk_desc: "Free-for-all PvP with real players, Shadow Executioners & 250% Drop!",
+        settings_title: "SYSTEM SETTINGS",
+        set_lang: "Game Language / Dil",
+        set_sfx: "Sound Effects (SFX)",
+        set_autopot: "Auto-Potion Threshold (HP %)",
+        btn_close: "SAVE & CLOSE",
+        guide_title: "DYNASTY COMBAT GUIDE",
+        weapon_blade: "Fullmoon Greatsword",
+        weapon_monk: "Dragonbone Spear",
+        zone_short_village: "Bannerhold (Safe)",
+        zone_short_valley: "Twilight Steppe",
+        zone_short_pk: "Crimson Crucible (PVP)"
+    }
+};
+
+let currentLang = localStorage.getItem('hanedan_lang') || 'tr';
+function t(k) { return (I18N[currentLang] && I18N[currentLang][k]) ? I18N[currentLang][k] : k; }
+
+function setLanguage(lang) {
+    currentLang = lang;
+    localStorage.setItem('hanedan_lang', lang);
+    document.querySelectorAll('[data-i18n]').forEach(el => {
+        const k = el.getAttribute('data-i18n');
+        if (I18N[lang][k]) el.innerText = I18N[lang][k];
+    });
+    ['auth-lang-tr', 'set-lang-tr'].forEach(id => document.getElementById(id)?.classList.toggle('active', lang === 'tr'));
+    ['auth-lang-en', 'set-lang-en'].forEach(id => document.getElementById(id)?.classList.toggle('active', lang === 'en'));
+    updateMenuUI();
+    updateHudUI();
+    updateQuestUI();
+    updateVipButtonsUI();
+}
+
+// ============================================================================
+// 3. ZORLU OYUNCU DURUMU & SEVİYE GÖREV SİSTEMİ (QUEST ENGINE)
+// ============================================================================
+let player = {
+    uid: playerUid,
+    username: "ALPARSLAN",
+    heroClass: "blade",
+    level: 1,
+    exp: 0,
+    maxExp: 320,
+    hp: 520,
+    maxHp: 520,
+    baseAtk: 34,
+    gold: 150,
+    essence: 0,
+    blessingScrolls: 1, // Metin2 Kutsama Kağıdı
+    enchantItems: 1,    // Metin2 Efsun Nesnesi
+    potions: 10,
+    lootCount: 0,
+    weaponLevel: 0,
+    ortZarar: 8,        // Dolunay Ortalama Zarar %
+    becHasar: 2,        // Beceri Hasarı %
+    pity: 0,
+    statUpgrades: 0,
+    isPremium: false,   // VIP Abonelik (Oto-Av Kilidi)
+    autoMode: false,
+    heavyStance: true,
+    autoPotThreshold: 45,
+    zone: 'village',
+    questIndex: 0,
+    questProgress: 0
+};
+
+function getQuestDefinition(idx) {
+    const quests = [
+        { reqLvl: 1, type: 'kill_wolf', target: 6, titleTr: 'Seviye 1: Bozkır Temizliği', titleEn: 'Lv.1: Steppe Patrol', descTr: '6 Yabani Bozkır Kurdu Avla', descEn: 'Hunt 6 Wild Steppe Wolves', rewardGold: 140, rewardExp: 180, rewardEss: 1, rewardScroll: 0 },
+        { reqLvl: 1, type: 'kill_stone', target: 1, titleTr: 'Seviye 2: İlk Kader Kayası', titleEn: 'Lv.2: First Fate Stone', descTr: '1 Kader Kayası (Metin) Parçala', descEn: 'Shatter 1 Fate Stone', rewardGold: 220, rewardExp: 280, rewardEss: 1, rewardScroll: 1 },
+        { reqLvl: 2, type: 'upgrade_wpn', target: 1, titleTr: 'Seviye 2: Demirci Çırağı', titleEn: 'Lv.2: Blacksmith Apprentice', descTr: 'Demircide Silahını +1 veya Üzeri Yap', descEn: 'Upgrade Weapon to +1 or Higher', rewardGold: 250, rewardExp: 350, rewardEss: 2, rewardScroll: 1 },
+        { reqLvl: 3, type: 'kill_orc', target: 10, titleTr: 'Seviye 3: Kızıl Ork Tehdidi', titleEn: 'Lv.3: Red Orc Threat', descTr: '10 Kızıl Ork Savaşçısı Avla', descEn: 'Slay 10 Red Orc Warriors', rewardGold: 400, rewardExp: 550, rewardEss: 2, rewardScroll: 1 },
+        { reqLvl: 4, type: 'kill_stone', target: 3, titleTr: 'Seviye 4: Karanlık Enerji', titleEn: 'Lv.4: Dark Energy', descTr: '3 Kader Kayası Parçala', descEn: 'Shatter 3 Fate Stones', rewardGold: 650, rewardExp: 900, rewardEss: 3, rewardScroll: 1 },
+        { reqLvl: 5, type: 'upgrade_wpn', target: 4, titleTr: 'Seviye 5: Usta Savaşçı Pusatları', titleEn: 'Lv.5: Master Armaments', descTr: 'Silahını +4 Seviyesine Ulaştır', descEn: 'Upgrade Weapon to +4', rewardGold: 1100, rewardExp: 1400, rewardEss: 4, rewardScroll: 2 }
+    ];
+    if (idx < quests.length) return quests[idx];
+    const tier = idx - quests.length + 1;
+    return {
+        reqLvl: 5 + tier,
+        type: tier % 2 === 0 ? 'kill_stone' : 'kill_any',
+        target: tier % 2 === 0 ? (2 + tier) : (12 + tier * 4),
+        titleTr: `Seviye ${5 + tier}: Sefer Görevi #${tier}`,
+        titleEn: `Lv.${5 + tier}: Campaign Quest #${tier}`,
+        descTr: tier % 2 === 0 ? `${2 + tier} Kader Kayası Parçala` : `Haritada ${12 + tier * 4} Canavar Avla`,
+        descEn: tier % 2 === 0 ? `Shatter ${2 + tier} Fate Stones` : `Slay ${12 + tier * 4} Monsters`,
+        rewardGold: 800 + tier * 450,
+        rewardExp: 1000 + tier * 650,
+        rewardEss: 2 + Math.floor(tier / 2),
+        rewardScroll: 1
+    };
+}
+
+function advanceQuestProgress(eventType, currentVal = 1) {
+    const q = getQuestDefinition(player.questIndex);
+    if (q.type === 'upgrade_wpn') {
+        player.questProgress = Math.max(player.questProgress, player.weaponLevel);
+    } else if (q.type === eventType || (q.type === 'kill_any' && (eventType === 'kill_wolf' || eventType === 'kill_orc'))) {
+        player.questProgress = Math.min(q.target, player.questProgress + currentVal);
+    }
+    updateQuestUI();
+    savePlayerState();
+}
+
+function handleQuestClick() {
+    const q = getQuestDefinition(player.questIndex);
+    if (q.type === 'upgrade_wpn') player.questProgress = Math.max(player.questProgress, player.weaponLevel);
+
+    if (player.questProgress >= q.target) {
+        playSound('upgrade_ok');
+        player.gold += q.rewardGold;
+        player.essence += q.rewardEss;
+        player.blessingScrolls += (q.rewardScroll || 0);
+        player.potions += 5;
+        player.questIndex++;
+        player.questProgress = 0;
+        gainExp(q.rewardExp);
+        showToast(
+            currentLang === 'tr'
+                ? `Görev Tamamlandı! +${q.rewardGold} Akçe, +${q.rewardEss} Cevher!`
+                : `Quest Completed! +${q.rewardGold} Coins, +${q.rewardEss} Ore!`,
+            '#10b981'
+        );
+        updateQuestUI();
+        updateHudUI();
+        savePlayerState();
+    } else {
+        showToast(
+            currentLang === 'tr'
+                ? `Görev Ödülü: ${q.rewardGold} Akçe, ${q.rewardEss} Cevher, ${q.rewardExp} EXP`
+                : `Quest Reward: ${q.rewardGold} Coins, ${q.rewardEss} Ore, ${q.rewardExp} EXP`,
+            '#38bdf8'
+        );
+    }
+}
+
+function updateQuestUI() {
+    const q = getQuestDefinition(player.questIndex);
+    if (q.type === 'upgrade_wpn') player.questProgress = Math.max(player.questProgress, player.weaponLevel);
+
+    const isDone = player.questProgress >= q.target;
+    const card = document.getElementById('quest-tracker-card');
+    const header = document.getElementById('quest-hud-header');
+    const count = document.getElementById('quest-hud-count');
+    const desc = document.getElementById('quest-hud-desc');
+    const fill = document.getElementById('quest-hud-fill');
+
+    if (!card) return;
+    card.classList.toggle('claim-ready', isDone);
+    header.innerText = isDone
+        ? (currentLang === 'tr' ? '🎁 ÖDÜLÜ ALMAK İÇİN TIKLA!' : '🎁 TAP TO CLAIM REWARD!')
+        : (currentLang === 'tr' ? q.titleTr : q.titleEn);
+    count.innerText = `${Math.min(q.target, player.questProgress)} / ${q.target}`;
+    desc.innerText = currentLang === 'tr' ? q.descTr : q.descEn;
+    fill.style.width = `${Math.min(100, (player.questProgress / q.target) * 100)}%`;
+}
+
+function savePlayerState() {
+    try {
+        localStorage.setItem('hanedan_v2_save', JSON.stringify(player));
+        if (db && player.uid) {
+            db.ref('hanedan_rpg_v2/users/' + player.uid).set({
+                username: player.username,
+                heroClass: player.heroClass,
+                level: player.level,
+                exp: player.exp,
+                maxExp: player.maxExp,
+                maxHp: player.maxHp,
+                baseAtk: player.baseAtk,
+                gold: player.gold,
+                essence: player.essence,
+                blessingScrolls: player.blessingScrolls || 0,
+                enchantItems: player.enchantItems || 0,
+                ortZarar: player.ortZarar || 8,
+                becHasar: player.becHasar || 2,
+                isPremium: Boolean(player.isPremium),
+                potions: player.potions,
+                lootCount: player.lootCount,
+                weaponLevel: player.weaponLevel,
+                pity: player.pity,
+                statUpgrades: player.statUpgrades || 0,
+                questIndex: player.questIndex || 0,
+                questProgress: player.questProgress || 0,
+                updatedAt: Date.now()
+            }).catch(() => {});
+        }
+    } catch (e) {}
+}
+
+function loadPlayerState() {
+    try {
+        const raw = localStorage.getItem('hanedan_v2_save');
+        if (raw) {
+            player = Object.assign(player, JSON.parse(raw));
+            player.uid = playerUid;
+        }
+        if (!player.isPremium) player.autoMode = false;
+        if (db && playerUid) {
+            db.ref('hanedan_rpg_v2/users/' + playerUid).once('value').then(snap => {
+                const cloud = snap.val();
+                if (cloud && cloud.level >= player.level) {
+                    player = Object.assign(player, cloud);
+                    if (!player.isPremium) player.autoMode = false;
+                    localStorage.setItem('hanedan_v2_save', JSON.stringify(player));
+                    updateMenuUI();
+                    updateHudUI();
+                    updateQuestUI();
+                    updateVipButtonsUI();
+                }
+            }).catch(() => {});
+        }
+    } catch (e) {}
+}
+loadPlayerState();
+
+// ============================================================================
+// 4. SES EFEKTLERİ MOTORU
+// ============================================================================
+let audioCtx = null, sfxEnabled = true;
+function initAudio() {
+    if (!audioCtx) {
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (AC) audioCtx = new AC();
+    }
+    if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+}
+function playSound(type, pitchMult = 1) {
+    if (!sfxEnabled) return;
+    try {
+        initAudio();
+        if (!audioCtx) return;
+        const now = audioCtx.currentTime;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        if (type === 'anvil_hit') {
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(520 * pitchMult, now);
+            osc.frequency.exponentialRampToValueAtTime(135, now + 0.18);
+            gain.gain.setValueAtTime(0.35, now);
+            gain.gain.exponentialRampToValueAtTime(0.008, now + 0.18);
+            osc.start(now); osc.stop(now + 0.18);
+        } else if (type === 'slash') {
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(260, now);
+            osc.frequency.exponentialRampToValueAtTime(70, now + 0.11);
+            gain.gain.setValueAtTime(0.16, now);
+            gain.gain.exponentialRampToValueAtTime(0.01, now + 0.11);
+            osc.start(now); osc.stop(now + 0.11);
+        } else if (type === 'skill') {
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(150, now);
+            osc.frequency.exponentialRampToValueAtTime(540, now + 0.25);
+            gain.gain.setValueAtTime(0.24, now);
+            gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
+            osc.start(now); osc.stop(now + 0.25);
+        } else if (type === 'upgrade_ok') {
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(440, now);
+            osc.frequency.setValueAtTime(659.25, now + 0.1);
+            osc.frequency.setValueAtTime(880, now + 0.2);
+            gain.gain.setValueAtTime(0.28, now);
+            gain.gain.exponentialRampToValueAtTime(0.01, now + 0.45);
+            osc.start(now); osc.stop(now + 0.45);
+        } else if (type === 'upgrade_fail') {
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(185, now);
+            osc.frequency.linearRampToValueAtTime(80, now + 0.3);
+            gain.gain.setValueAtTime(0.24, now);
+            gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+            osc.start(now); osc.stop(now + 0.3);
+        } else if (type === 'click') {
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(820, now);
+            gain.gain.setValueAtTime(0.09, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.04);
+            osc.start(now); osc.stop(now + 0.04);
+        }
+    } catch (e) {}
+}
+function toggleSfx(v) { sfxEnabled = v; }
+
+// ============================================================================
+// 5. CANLI ONLINE PAZAR & 3. KÖY PVP SENKRONİZASYONU
+// ============================================================================
+let onlineMarketListings = {};
+let remotePlayers = {};
+let lastPvpBroadcast = 0;
+
+function initOnlineSystems() {
+    if (!db) return;
+
+    db.ref('hanedan_rpg_v2/bazaar').limitToLast(25).on('value', snap => {
+        onlineMarketListings = snap.val() || {};
+        if (Object.keys(onlineMarketListings).length === 0) {
+            db.ref('hanedan_rpg_v2/bazaar').push({
+                sellerUid: 'npc_smith',
+                sellerName: 'KALE TÜCCARI',
+                itemType: 'essence',
+                itemName: '1x Kader Cevheri',
+                price: 260,
+                timestamp: Date.now()
+            });
+        }
+        if (document.getElementById('modal-market').classList.contains('open')) renderMarketModal();
+    });
+
+    db.ref('hanedan_rpg_v2/pvp_arena').on('value', snap => {
+        const all = snap.val() || {};
+        const now = Date.now();
+        remotePlayers = {};
+        Object.keys(all).forEach(uid => {
+            if (uid !== player.uid && (now - (all[uid].lastSeen || 0) < 25000)) {
+                remotePlayers[uid] = all[uid];
+            }
+        });
+        const countEl = document.getElementById('online-pvp-counter');
+        if (countEl) {
+            const count = Object.keys(remotePlayers).length + 1;
+            countEl.style.display = player.zone === 'pk' ? 'inline' : 'none';
+            countEl.innerText = `(${count} Online)`;
+        }
+    });
+
+    db.ref('hanedan_rpg_v2/pvp_hits/' + player.uid).on('child_added', snap => {
+        const hit = snap.val();
+        snap.ref.remove();
+        if (!hit || player.zone !== 'pk') return;
+        const dmg = Math.max(8, Number(hit.damage) || 30);
+        player.hp = Math.max(0, player.hp - dmg);
+        spawnFloatingText(hero.x, hero.y - 30, `-${dmg} (${hit.attacker || 'PK'})`, '#e11d48', 15);
+        updateHudUI();
+        if (player.hp <= 0) {
+            player.hp = player.maxHp;
+            changeMapZone('village');
+            showToast(`${hit.attacker || 'Rakip'} tarafından Er Meydanı'nda mağlup edildin!`, '#e11d48');
+        }
+    });
+}
+
+function broadcastPvpState(isAttacking = false) {
+    if (!db || player.zone !== 'pk') return;
+    const now = Date.now();
+    if (!isAttacking && now - lastPvpBroadcast < 180) return;
+    lastPvpBroadcast = now;
+
+    db.ref('hanedan_rpg_v2/pvp_arena/' + player.uid).set({
+        uid: player.uid,
+        name: player.username,
+        heroClass: player.heroClass,
+        level: player.level,
+        weaponLevel: player.weaponLevel,
+        x: Math.round(hero.x),
+        y: Math.round(hero.y),
+        angle: Number(hero.angle.toFixed(2)),
+        hp: Math.round(player.hp),
+        maxHp: player.maxHp,
+        slashAnim: isAttacking ? 12 : 0,
+        lastSeen: now
+    }).catch(() => {});
+}
+
+function removeSelfFromPvpArena() {
+    if (db && player.uid) db.ref('hanedan_rpg_v2/pvp_arena/' + player.uid).remove().catch(() => {});
+}
+window.addEventListener('beforeunload', removeSelfFromPvpArena);
+
+function createOnlineMarketListing() {
+    const type = document.getElementById('market-sell-type').value;
+    const price = Math.max(20, parseInt(document.getElementById('market-sell-price').value) || 180);
+
+    let itemName = '1x Kader Cevheri';
+    if (type === 'essence') {
+        if (player.essence < 1) { showToast("Envanterinde Kader Cevheri yok!", "#e11d48"); return; }
+        player.essence--;
+    } else if (type === 'scroll') {
+        if (player.blessingScrolls < 1) { showToast("Envanterinde Kutsama Kağıdı yok!", "#e11d48"); return; }
+        player.blessingScrolls--;
+        itemName = '1x Kutsama Kağıdı';
+    } else if (type === 'potion5') {
+        if (player.potions < 5) { showToast("En az 5 Kırmızı İksirin olmalı!", "#e11d48"); return; }
+        player.potions -= 5;
+        itemName = '5x Kırmızı İksir';
+    } else if (type === 'loot') {
+        if (player.lootCount < 1) { showToast("Satılacak ganimetin yok!", "#e11d48"); return; }
+        player.lootCount--;
+        itemName = '1x Kurt Postu Ganimeti';
+    }
+
+    savePlayerState();
+    updateHudUI();
+    if (db) {
+        db.ref('hanedan_rpg_v2/bazaar').push({
+            sellerUid: player.uid,
+            sellerName: player.username,
+            itemType: type,
+            itemName: itemName,
+            price: price,
+            timestamp: Date.now()
+        });
+    }
+    playSound('upgrade_ok');
+    showToast(`${itemName} ${price} Akçe ile Online Pazara koyuldu!`);
+    renderMarketModal();
+}
+
+function buyFromOnlineMarket(key) {
+    const item = onlineMarketListings[key];
+    if (!item) return;
+
+    if (item.sellerUid === player.uid) {
+        if (item.itemType === 'essence') player.essence++;
+        else if (item.itemType === 'scroll') player.blessingScrolls++;
+        else if (item.itemType === 'potion5') player.potions += 5;
+        else player.lootCount++;
+        if (db) db.ref('hanedan_rpg_v2/bazaar/' + key).remove();
+        savePlayerState(); updateHudUI();
+        showToast("İlanın geri çekildi.");
+        return;
+    }
+
+    if (player.gold < item.price) {
+        playSound('upgrade_fail');
+        showToast("Yetersiz Akçe!", "#e11d48");
+        return;
+    }
+
+    player.gold -= item.price;
+    if (item.itemType === 'essence') player.essence++;
+    else if (item.itemType === 'scroll') player.blessingScrolls++;
+    else if (item.itemType === 'potion5') player.potions += 5;
+    else player.lootCount++;
+
+    if (db) {
+        db.ref('hanedan_rpg_v2/bazaar/' + key).remove();
+        if (item.sellerUid && item.sellerUid !== 'npc_smith') {
+            db.ref('hanedan_rpg_v2/users/' + item.sellerUid + '/gold').transaction(g => (g || 0) + item.price);
+        }
+    }
+    playSound('upgrade_ok');
+    savePlayerState(); updateHudUI();
+    showToast(`${item.itemName} satın alındı!`);
+}
+
+function buyNpcPotions() {
+    if (player.gold < 40) { showToast("40 Akçe gerekli!", "#e11d48"); return; }
+    player.gold -= 40;
+    player.potions += 5;
+    playSound('click');
+    savePlayerState(); updateHudUI();
+    showToast("+5 Kırmızı İksir alındı.");
+}
+
+// ============================================================================
+// 6. METİN2 İHTİMALLİ +BASMA, SİNEMATİK ANİMASYON VE TL NESNE MARKET
+// ============================================================================
+// Her seviyede düşen gerçekçi +basma oranları (+0 -> +9)
+const UPGRADE_RATES = [90, 80, 70, 60, 50, 40, 25, 15, 6];
+
+function getEffectiveUpgradeRate(lvl) {
+    if (lvl >= 9) return 100;
+    const base = UPGRADE_RATES[lvl] || 6;
+    const vipBonus = player.isPremium ? 8 : 0;
+    return Math.min(96, base + vipBonus);
+}
+
+function getTotalAttack() {
+    const bonus = [0, 11, 25, 44, 70, 105, 155, 225, 320, 480][player.weaponLevel] || 0;
+    const raw = (player.baseAtk + bonus) * (player.heavyStance ? 1.22 : 1.0);
+    const ortMult = 1 + (player.ortZarar || 0) / 100;
+    return Math.max(10, Math.round(raw * ortMult));
+}
+
+function getWeaponTitle() {
+    const base = player.heroClass === 'blade' ? t('weapon_blade') : t('weapon_monk');
+    return `${base} +${player.weaponLevel}`;
+}
+
+function showToast(msg, border = '#f59e0b') {
+    const el = document.getElementById('toast-banner');
+    if (!el) return;
+    el.innerText = msg;
+    el.style.borderColor = border;
+    el.classList.add('show');
+    clearTimeout(window.__tTimer);
+    window.__tTimer = setTimeout(() => el.classList.remove('show'), 2500);
+}
+
+function selectHeroClass(cls) {
+    playSound('click');
+    player.heroClass = cls;
+    document.getElementById('card-class-blade').classList.toggle('selected', cls === 'blade');
+    document.getElementById('card-class-monk').classList.toggle('selected', cls === 'monk');
+}
+
+function switchScreen(id) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById(id)?.classList.add('active');
+}
+
+function handleLogin() {
+    initAudio(); playSound('click');
+    const u = document.getElementById('login-username').value.trim();
+    const p = document.getElementById('login-password').value.trim();
+    if (u.length < 2) { showToast("Geçerli bir savaşçı adı girin!", "#e11d48"); return; }
+    if (p.length < 4) { showToast("Şifre en az 4 haneli olmalı!", "#e11d48"); return; }
+    player.username = u.toUpperCase();
+    savePlayerState();
+    updateMenuUI();
+    switchScreen('screen-menu');
+}
+
+function handleGuestLogin() {
+    initAudio(); playSound('click');
+    if (!player.username || player.username === "ALPARSLAN") {
+        player.username = "ALP-" + Math.floor(100 + Math.random() * 899);
+    }
+    savePlayerState();
+    updateMenuUI();
+    switchScreen('screen-menu');
+}
+
+function logoutAccount() {
+    removeSelfFromPvpArena();
+    savePlayerState();
+    switchScreen('screen-auth');
+}
+
+function enterGameWorld() {
+    initAudio();
+    playSound('skill');
+    switchScreen('screen-game');
+    resizeCanvas();
+    initGroundTextures();
+    spawnZoneEntities();
+    updateHudUI();
+    updateQuestUI();
+    updateVipButtonsUI();
+    initOnlineSystems();
+}
+
+function returnToMainMenu() {
+    removeSelfFromPvpArena();
+    savePlayerState();
+    updateMenuUI();
+    switchScreen('screen-menu');
+}
+
+function updateMenuUI() {
+    document.getElementById('menu-hero-name').innerText = player.username;
+    document.getElementById('menu-hero-weapon-badge').innerText = getWeaponTitle();
+    const cTitle = player.heroClass === 'blade' ? t('class_blade_title') : t('class_monk_title');
+    document.getElementById('menu-hero-info').innerText = `Seviye ${player.level} • ${cTitle} (Ort: %${player.ortZarar})`;
+    document.getElementById('menu-hero-gold').innerText = `${player.gold.toLocaleString()} Akçe • ${player.essence} Kader Cevheri`;
+}
+
+function openModal(id) {
+    playSound('click');
+    closeAllModals();
+    document.getElementById(id)?.classList.add('open');
+    if (id === 'modal-anvil') renderAnvilModal();
+    if (id === 'modal-market') renderMarketModal();
+    if (id === 'modal-char') renderCharModal();
+    if (id === 'modal-store') updateVipButtonsUI();
+}
+
+function closeAllModals() {
+    document.querySelectorAll('.modal-backdrop').forEach(m => m.classList.remove('open'));
+}
+
+function getUpgradeGoldCost(lvl) {
+    return Math.round(120 * Math.pow(1.65, lvl));
+}
+
+function getUpgradeEssenceCost(lvl) {
+    return lvl >= 7 ? 3 : (lvl >= 4 ? 2 : 1);
+}
+
+function renderAnvilModal() {
+    const lvl = player.weaponLevel;
+    const rate = getEffectiveUpgradeRate(lvl);
+    const goldCost = getUpgradeGoldCost(lvl);
+    const essCost = getUpgradeEssenceCost(lvl);
+
+    document.getElementById('anvil-weapon-name').innerText = getWeaponTitle();
+    document.getElementById('anvil-weapon-stats').innerHTML = `ATK: <strong>${getTotalAttack()}</strong> ➔ <strong style="color:#10b981;">${getTotalAttack() + 18 + lvl * 8}</strong>`;
+    document.getElementById('anvil-ort-text').innerText = `Ortalama Zarar: ${player.ortZarar >= 0 ? '+' + player.ortZarar : player.ortZarar}%`;
+    document.getElementById('anvil-bec-text').innerText = `Beceri Hasarı: ${player.becHasar >= 0 ? '+' + player.becHasar : player.becHasar}%`;
+
+    const chanceEl = document.getElementById('anvil-chance-val');
+    chanceEl.innerText = lvl >= 9 ? "MAKSİMUM (+9)" : `%${rate}${player.isPremium ? ' (VIP +%8)' : ''}`;
+    chanceEl.style.color = rate >= 60 ? '#10b981' : (rate >= 25 ? '#fbbf24' : '#e11d48');
+
+    document.getElementById('anvil-cost-gold').innerText = `${goldCost}`;
+    document.getElementById('anvil-cost-ess').innerText = `${essCost}`;
+    document.getElementById('anvil-owned-scrolls').innerText = `${player.blessingScrolls} Adet`;
+    document.getElementById('btn-efsunla').innerText = `✨ EFSUN NESNESİ İLE ORTALAMA DEĞİŞTİR (${player.enchantItems})`;
+}
+
+function rerollWeaponOrt() {
+    if (player.enchantItems <= 0) {
+        playSound('upgrade_fail');
+        showToast("Efsun Nesnen kalmadı! ₺ Market'ten alabilirsin.", "#e11d48");
+        return;
+    }
+    player.enchantItems--;
+    const r = Math.random();
+    if (r < 0.14) player.ortZarar = Math.floor(35 + Math.random() * 19);
+    else if (r < 0.68) player.ortZarar = Math.floor(8 + Math.random() * 25);
+    else player.ortZarar = Math.floor(-9 + Math.random() * 16);
+
+    player.becHasar = Math.floor(-6 + Math.random() * 20);
+    playSound('skill');
+    savePlayerState();
+    renderAnvilModal();
+    updateMenuUI();
+    showToast(`Yeni Efsun: Ortalama Zarar %${player.ortZarar} | Beceri %${player.becHasar}`, '#a855f7');
+}
+
+// HEYECANLI +BASMA SİNEMATİK ANİMASYONU
+let isForgingBusy = false;
+
+function upgradeWeaponAction() {
+    if (isForgingBusy) return;
+    if (player.weaponLevel >= 9) { showToast("Silahın zaten +9 destansı seviyede!"); return; }
+    const lvl = player.weaponLevel;
+    const goldCost = getUpgradeGoldCost(lvl);
+    const essCost = getUpgradeEssenceCost(lvl);
+    const useBlessing = document.getElementById('chk-use-blessing').checked;
+
+    if (player.gold < goldCost || player.essence < essCost) {
+        playSound('upgrade_fail');
+        showToast("Yetersiz Akçe veya Kader Cevheri!", "#e11d48");
+        return;
+    }
+
+    if (useBlessing && player.blessingScrolls <= 0) {
+        playSound('upgrade_fail');
+        showToast("Kutsama Kağıdın yok! İşareti kaldır veya ₺ Market'ten al.", "#e11d48");
+        return;
+    }
+
+    player.gold -= goldCost;
+    player.essence -= essCost;
+    if (useBlessing) player.blessingScrolls--;
+
+    isForgingBusy = true;
+    const targetLvl = lvl + 1;
+    const rate = getEffectiveUpgradeRate(lvl);
+
+    const overlay = document.getElementById('forge-cinematic-overlay');
+    const titleEl = document.getElementById('forge-anim-title');
+    const statusEl = document.getElementById('forge-anim-status');
+    const barEl = document.getElementById('forge-anim-bar');
+    const closeBtn = document.getElementById('forge-anim-close-btn');
+    const hammer = document.getElementById('forge-hammer-svg');
+    const circle = document.getElementById('forge-stage-circle');
+
+    titleEl.innerText = `${getWeaponTitle()} ➔ +${targetLvl} (İhtimal: %${rate})`;
+    statusEl.innerText = "Demirci silahı kor ateşe sürüyor...";
+    statusEl.style.color = "#fde68a";
+    barEl.style.width = "10%";
+    closeBtn.style.display = "none";
+    hammer.style.display = "block";
+    circle.style.boxShadow = "0 0 30px rgba(245, 158, 11, 0.35)";
+    overlay.classList.add('active');
+
+    const strikeStep = (step, txt, pitch) => {
+        statusEl.innerText = txt;
+        barEl.style.width = `${step * 30}%`;
+        hammer.classList.remove('hammer-hit');
+        void hammer.offsetWidth;
+        hammer.classList.add('hammer-hit');
+        playSound('anvil_hit', pitch);
+        circle.style.transform = "scale(1.09)";
+        setTimeout(() => { circle.style.transform = "scale(1)"; }, 140);
+    };
+
+    setTimeout(() => strikeStep(1, "1. Çekiç Darbesi! Kıvılcımlar saçılıyor...", 1.0), 650);
+    setTimeout(() => strikeStep(2, "2. Çekiç Darbesi! Çelik kor gibi parlıyor...", 1.22), 1450);
+    setTimeout(() => strikeStep(3, "Demirci alnındaki teri siliyor... Kader anı!", 1.45), 2250);
+
+    setTimeout(() => {
+        barEl.style.width = "100%";
+        hammer.style.display = "none";
+        const roll = Math.random() * 100;
+
+        if (roll <= rate) {
+            player.weaponLevel++;
+            playSound('upgrade_ok');
+            circle.style.boxShadow = "0 0 65px #10b981, inset 0 0 30px #fbbf24";
+            statusEl.style.color = "#10b981";
+            statusEl.innerHTML = `✨ BAŞARILI! ${getWeaponTitle()} OLDU!`;
+            advanceQuestProgress('upgrade_wpn', player.weaponLevel);
+            spawnFloatingText(hero.x, hero.y - 45, `+${player.weaponLevel} BAŞARILI!`, '#fbbf24', 18);
+        } else {
+            playSound('upgrade_fail');
+            circle.style.boxShadow = "0 0 65px #e11d48, inset 0 0 30px #7f1d1d";
+            statusEl.style.color = "#e11d48";
+            if (useBlessing) {
+                if (player.weaponLevel > 0) player.weaponLevel--;
+                statusEl.innerHTML = `💥 BAŞARISIZ OLDU! Kutsama Kağıdı silahı korudu (+${player.weaponLevel}).`;
+            } else {
+                player.weaponLevel = 0;
+                statusEl.innerHTML = `🔥 SİLAH YANDI! Kutsama Kağıdı olmadığı için +0'a düştü!`;
+            }
+        }
+
+        savePlayerState();
+        renderAnvilModal();
+        updateHudUI();
+        closeBtn.style.display = "flex";
+        isForgingBusy = false;
+    }, 3200);
+}
+
+function closeForgeCinematic() {
+    document.getElementById('forge-cinematic-overlay').classList.remove('active');
+}
+
+// TÜRK LİRASI (₺) SATIN ALIM SİSTEMİ
+async function buyRealMoneyPack(packId, priceTL) {
+    playSound('click');
+    const Purchases = window.Capacitor?.Plugins?.Purchases;
+    if (Purchases && window.Capacitor?.isNativePlatform && window.Capacitor.isNativePlatform()) {
+        try {
+            const res = await Purchases.getProducts({ productIdentifiers: [packId], type: 'INAPP' });
+            if (res?.products?.[0]) await Purchases.purchaseStoreProduct({ product: res.products[0] });
+        } catch (err) {
+            if (err.userCancelled) return;
+        }
+    }
+
+    if (packId === 'vip_monthly') {
+        player.isPremium = true;
+        player.autoMode = true;
+        player.blessingScrolls += 5;
+        player.essence += 10;
+        showToast(`👑 ₺${priceTL} VIP Hükümdar & Oto-Av Aktif Edildi!`, '#fbbf24');
+    } else if (packId === 'ore_pack') {
+        player.essence += 15;
+        player.blessingScrolls += 3;
+        showToast(`💎 ₺${priceTL} Ödeme Onaylandı: +15 Cevher, +3 Kutsama!`, '#38bdf8');
+    } else if (packId === 'efsun_pack') {
+        player.enchantItems += 10;
+        player.blessingScrolls += 6;
+        showToast(`✨ ₺${priceTL} Ödeme Onaylandı: +10 Efsun, +6 Kutsama!`, '#a855f7');
+    } else if (packId === 'emperor_pack') {
+        player.gold += 15000;
+        player.essence += 30;
+        player.blessingScrolls += 15;
+        showToast(`🪙 ₺${priceTL} İmparator Hazinesi Hesabına Eklendi!`, '#10b981');
+    }
+
+    playSound('upgrade_ok');
+    savePlayerState();
+    updateHudUI();
+    updateVipButtonsUI();
+    if (document.getElementById('modal-anvil').classList.contains('open')) renderAnvilModal();
+}
+
+function updateVipButtonsUI() {
+    const autoBtn = document.getElementById('btn-toggle-auto');
+    const autoTxt = document.getElementById('auto-btn-txt');
+    const vipPill = document.getElementById('vip-status-pill');
+
+    if (player.isPremium) {
+        if (vipPill) { vipPill.innerText = "AKTİF (VIP)"; vipPill.style.background = "#10b981"; }
+        if (autoTxt) autoTxt.innerText = player.autoMode ? "OTO AV: AÇIK" : "OTO AV: KAPALI";
+        if (autoBtn) autoBtn.classList.toggle('active-auto', player.autoMode);
+    } else {
+        if (vipPill) { vipPill.innerText = "PASİF"; vipPill.style.background = "#e11d48"; }
+        if (autoTxt) autoTxt.innerText = "🔒 OTO AV (VIP)";
+        if (autoBtn) autoBtn.classList.remove('active-auto');
+    }
+}
+
+function renderMarketModal() {
+    document.getElementById('bag-loot-count').innerText = player.lootCount;
+    const listEl = document.getElementById('online-market-list');
+    const keys = Object.keys(onlineMarketListings).reverse();
+    if (keys.length === 0) {
+        listEl.innerHTML = `<div style="text-align:center; padding:16px; color:#64748b; font-size:11.5px;">Henüz açık tezgah bulunmuyor.</div>`;
+        return;
+    }
+    listEl.innerHTML = keys.map(k => {
+        const item = onlineMarketListings[k];
+        const isMine = item.sellerUid === player.uid;
+        return `
+            <div class="setting-row" style="margin-bottom:0; padding:8px 10px;">
+                <div>
+                    <div style="font-size:12px; font-weight:900; color:#fff;">${item.itemName}</div>
+                    <div style="font-size:10px; color:#94a3b8;">Satıcı: <strong style="color:#fbbf24;">${item.sellerName}</strong></div>
+                </div>
+                <button class="btn ${isMine ? 'btn-crimson' : 'btn-gold'}" style="width:auto; padding:6px 10px; font-size:10.5px;" onclick="buyFromOnlineMarket('${k}')">
+                    ${isMine ? 'GERİ ÇEK' : item.price + ' AKÇE'}
+                </button>
+            </div>
+        `;
+    }).join('');
+}
+
+function sellAllLoot() {
+    if (player.lootCount <= 0) { showToast("Çantanda satılacak ganimet yok!"); return; }
+    const gain = player.lootCount * 18;
+    player.gold += gain;
+    player.lootCount = 0;
+    playSound('upgrade_ok');
+    savePlayerState();
+    renderMarketModal();
+    updateHudUI();
+    showToast(`+${gain} Akçe kazanıldı!`, '#10b981');
+}
+
+function getStatCost() {
+    return 120 + (player.statUpgrades || 0) * 85;
+}
+
+function renderCharModal() {
+    const cost = getStatCost();
+    document.getElementById('char-stats-details').innerHTML = `
+        <div class="setting-row"><span>Saldırı Değeri (STR)</span><strong style="color:var(--gold-light);">${getTotalAttack()}</strong></div>
+        <div class="setting-row"><span>Silah Ortalama Zararı</span><strong style="color:var(--emerald);">%${player.ortZarar}</strong></div>
+        <div class="setting-row"><span>Yaşam Enerjisi (VIT)</span><strong style="color:var(--emerald);">${player.maxHp}</strong></div>
+        <div class="setting-row"><span>Kutsama / Efsun Nesnesi</span><strong style="color:#c084fc;">${player.blessingScrolls} / ${player.enchantItems}</strong></div>
+        <div class="setting-row"><span>VIP Oto-Av Statüsü</span><strong style="color:${player.isPremium ? '#10b981' : '#e11d48'};">${player.isPremium ? 'AKTİF' : 'KİLİTLİ'}</strong></div>
+    `;
+    document.getElementById('btn-stat-upgrade').innerText = `STR & VIT EĞİTİMİ AL (${cost} AKÇE)`;
+}
+
+function allocateStatPoint() {
+    const cost = getStatCost();
+    if (player.gold < cost) { showToast(`${cost} Akçe gerekli!`, "#e11d48"); return; }
+    player.gold -= cost;
+    player.statUpgrades = (player.statUpgrades || 0) + 1;
+    player.baseAtk += 5;
+    player.maxHp += 45;
+    player.hp = player.maxHp;
+    playSound('upgrade_ok');
+    savePlayerState();
+    renderCharModal();
+    updateHudUI();
+}
+
+function changeMapZone(z) {
+    if (player.zone === 'pk' && z !== 'pk') removeSelfFromPvpArena();
+    player.zone = z;
+    closeAllModals();
+    spawnZoneEntities();
+    updateHudUI();
+    playSound('skill');
+    if (z === 'pk') {
+        broadcastPvpState(false);
+        showToast("Kızıl Er Meydanı'na girdin! Online PvP Aktif!", "#e11d48");
+    } else {
+        showToast(z === 'village' ? t('zone_short_village') : t('zone_short_valley'));
+    }
+}
+
+function updateAutoPotThreshold(v) {
+    player.autoPotThreshold = parseInt(v);
+    document.getElementById('autopot-val-label').innerText = `%${v}`;
+    savePlayerState();
+}
+
+// ============================================================================
+// 7. GELİŞMİŞ 2.5D GÖRSEL MOTOR (DOKULAR, GÖLGELER, NEHİR DALGALANMASI, Y-SORT)
+// ============================================================================
+const canvas = document.getElementById('game-canvas');
+const ctx = canvas.getContext('2d');
+const miniCanvas = document.getElementById('minimap-canvas');
+const miniCtx = miniCanvas.getContext('2d');
+
+const WORLD_HALF = 2000;
+
+let hero = {
+    x: 0, y: 120, speed: 3.2, angle: -Math.PI / 2, walkFrame: 0,
+    attackCd: 0, dashCd: 0, skill1Cd: 0, skill2Cd: 0, invulnerable: 0, slashAnim: 0
+};
+
+let joystick = { active: false, dx: 0, dy: 0, startX: 0, startY: 0 };
+let monsters = [];
+let rifts = [];
+let particles = [];
+let floatingTexts = [];
+let groundDrops = [];
+let envProps = [];
+let grassTufts = [];
+let torches = [];
+let screenShake = 0;
+
+let groundPatterns = {};
+
+function initGroundTextures() {
+    const biomes = [
+        { key: 'village', base: '#1a241b', speck1: '#223024', speck2: '#131b14' },
+        { key: 'valley', base: '#142016', speck1: '#1c2d1f', speck2: '#0e1710' },
+        { key: 'pk', base: '#1f1013', speck1: '#2d161b', speck2: '#14090b' }
+    ];
+    biomes.forEach(b => {
+        const off = document.createElement('canvas');
+        off.width = 256; off.height = 256;
+        const octx = off.getContext('2d');
+        octx.fillStyle = b.base;
+        octx.fillRect(0, 0, 256, 256);
+
+        for (let i = 0; i < 450; i++) {
+            octx.fillStyle = i % 2 === 0 ? b.speck1 : b.speck2;
+            const rx = Math.random() * 256, ry = Math.random() * 256;
+            octx.fillRect(rx, ry, 3 + Math.random() * 5, 2 + Math.random() * 4);
+        }
+        groundPatterns[b.key] = ctx.createPattern(off, 'repeat');
+    });
+}
+
+function resizeCanvas() {
+    const frame = document.getElementById('app-frame');
+    canvas.width = frame.clientWidth;
+    canvas.height = frame.clientHeight;
+}
+window.addEventListener('resize', resizeCanvas);
+
+function getRiverCenterY(worldX) {
+    return 420 + Math.sin(worldX * 0.0022) * 140;
+}
+
+function isNearBridge(wx) {
+    return Math.abs(wx - 0) < 68 || Math.abs(wx - 900) < 68 || Math.abs(wx + 900) < 68;
+}
+
+function spawnZoneEntities() {
+    monsters = [];
+    rifts = [];
+    groundDrops = [];
+    envProps = [];
+    grassTufts = [];
+    torches = [];
+    hero.x = 0;
+    hero.y = 85;
+
+    const torchPositions = [
+        { x: -160, y: -120 }, { x: 160, y: -120 },
+        { x: -160, y: 140 }, { x: 160, y: 140 },
+        { x: -75, y: 340 }, { x: 75, y: 340 },
+        { x: -75, y: 500 }, { x: 75, y: 500 }
+    ];
+    torchPositions.forEach(tp => torches.push(tp));
+
+    for (let i = 0; i < 140; i++) {
+        let px = (Math.random() - 0.5) * 3600;
+        let py = (Math.random() - 0.5) * 3600;
+        if (Math.hypot(px, py) < 280) continue;
+        if (Math.abs(py - getRiverCenterY(px)) < 85) continue;
+        envProps.push({
+            x: px, y: py,
+            type: i % 3 === 0 ? 'rock' : 'tree',
+            scale: 0.85 + (i % 4) * 0.16,
+            seed: Math.random() * 10
+        });
+    }
+
+    for (let i = 0; i < 220; i++) {
+        grassTufts.push({
+            x: (Math.random() - 0.5) * 3600,
+            y: (Math.random() - 0.5) * 3600,
+            phase: Math.random() * Math.PI * 2
+        });
+    }
+
+    if (player.zone === 'village') return;
+
+    const zMult = player.zone === 'pk' ? 2.4 : 1;
+
+    for (let i = 0; i < 8; i++) {
+        const a = (i / 8) * Math.PI * 2;
+        const dist = i < 3 ? 520 : 1250;
+        const rx = Math.cos(a) * dist;
+        const ry = Math.sin(a) * dist;
+        const stoneLv = i < 3 ? 15 : 30;
+        const hpVal = Math.round((i < 3 ? 2600 : 5400) * zMult);
+        rifts.push({
+            id: 'stone_' + i,
+            name: `${player.zone === 'pk' ? 'RUH ' : 'KISKANÇLIK '}METİNİ (Lv.${stoneLv})`,
+            x: rx, y: ry,
+            hp: hpVal, maxHp: hpVal,
+            tier: i < 3 ? 1 : 2,
+            telegraphTimer: 100 + i * 25,
+            telegraphRadius: 0,
+            pulse: 0
+        });
+    }
+
+    for (let i = 0; i < 32; i++) {
+        spawnSingleMonster(zMult);
+    }
+}
+
+function spawnSingleMonster(zMult = 1, nx = null, ny = null) {
+    const a = Math.random() * Math.PI * 2;
+    const dist = nx !== null ? Math.hypot(nx, ny) : (320 + Math.random() * 1450);
+    const mx = nx !== null ? nx + (Math.random() - 0.5) * 90 : Math.cos(a) * dist;
+    const my = ny !== null ? ny + (Math.random() - 0.5) * 90 : Math.sin(a) * dist;
+
+    const isOuter = dist > 880;
+    const kind = isOuter ? 'orc' : 'wolf';
+    const mobLv = isOuter ? Math.floor(5 + dist / 280) : Math.floor(1 + dist / 260);
+    const hpVal = Math.round((isOuter ? 680 : 320) * zMult * (1 + mobLv * 0.15));
+
+    monsters.push({
+        name: isOuter ? `Kızıl Ork Savaşçısı (Lv.${mobLv})` : `Alfa Mavi Kurt (Lv.${mobLv})`,
+        kind: kind,
+        level: mobLv,
+        x: mx, y: my,
+        spawnX: mx, spawnY: my,
+        hp: hpVal, maxHp: hpVal,
+        atk: Math.round((isOuter ? 28 : 15) * zMult),
+        speed: isOuter ? 1.45 : 1.8,
+        angle: 0,
+        walkFrame: Math.random() * 10,
+        hitCd: 0
+    });
+}
+
+// JOYSTICK KONTROLÜ
+const joyZone = document.getElementById('joystick-zone');
+const joyKnob = document.getElementById('joystick-knob');
+
+joyZone.addEventListener('pointerdown', e => {
+    joyZone.setPointerCapture(e.pointerId);
+    const rect = joyZone.getBoundingClientRect();
+    joystick.active = true;
+    joystick.startX = rect.left + rect.width / 2;
+    joystick.startY = rect.top + rect.height / 2;
+    updateJoy(e.clientX, e.clientY);
+});
+joyZone.addEventListener('pointermove', e => { if (joystick.active) updateJoy(e.clientX, e.clientY); });
+joyZone.addEventListener('pointerup', endJoy);
+joyZone.addEventListener('pointercancel', endJoy);
+
+function updateJoy(cx, cy) {
+    let dx = cx - joystick.startX, dy = cy - joystick.startY;
+    const maxR = 34, dist = Math.hypot(dx, dy);
+    if (dist > maxR) { dx = (dx / dist) * maxR; dy = (dy / dist) * maxR; }
+    joyKnob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+    joystick.dx = dx / maxR; joystick.dy = dy / maxR;
+}
+function endJoy() {
+    joystick.active = false; joystick.dx = 0; joystick.dy = 0;
+    joyKnob.style.transform = `translate(-50%, -50%)`;
+}
+
+// VIP OTO-AV KONTROLÜ
+function toggleAutoMode() {
+    if (!player.isPremium) {
+        playSound('upgrade_fail');
+        showToast("🔒 Otomatik Av (OTO-AV) sadece VIP üyelere özeldir!", "#fbbf24");
+        openModal('modal-store');
+        return;
+    }
+    playSound('click');
+    player.autoMode = !player.autoMode;
+    updateVipButtonsUI();
+    savePlayerState();
+}
+
+function toggleStance() {
+    playSound('skill');
+    player.heavyStance = !player.heavyStance;
+    document.getElementById('stance-btn-txt').innerText = player.heavyStance ? "HAVA KILICI" : "ÖFKE DURUŞU";
+    hero.speed = player.heavyStance ? 3.2 : 3.9;
+    spawnFloatingText(hero.x, hero.y - 45, player.heavyStance ? "HAVA KILICI AKTİF" : "ÖFKE AKTİF", '#fbbf24', 14);
+}
+
+function usePotion() {
+    if (player.potions <= 0 || player.hp >= player.maxHp) return;
+    player.potions--;
+    const heal = Math.round(player.maxHp * 0.42);
+    player.hp = Math.min(player.maxHp, player.hp + heal);
+    spawnFloatingText(hero.x, hero.y - 35, `+${heal} HP`, '#10b981', 14);
+    updateHudUI();
+}
+
+function triggerDash() {
+    if (hero.dashCd > 0) return;
+    hero.dashCd = 90;
+    hero.invulnerable = 26;
+    playSound('slash');
+    const dx = joystick.active ? joystick.dx : Math.cos(hero.angle);
+    const dy = joystick.active ? joystick.dy : Math.sin(hero.angle);
+    hero.x += dx * 105; hero.y += dy * 105;
+    for (let i = 0; i < 16; i++) {
+        particles.push({ x: hero.x, y: hero.y, vx: (Math.random() - 0.5) * 4, vy: (Math.random() - 0.5) * 4, life: 22, color: '#38bdf8', size: 4 });
+    }
+}
+
+function useSkill(slot) {
+    const becMult = 1 + Math.max(-0.2, (player.becHasar || 0) / 100);
+    if (slot === 1 && hero.skill1Cd <= 0) {
+        hero.skill1Cd = 190;
+        hero.slashAnim = 16;
+        playSound('skill');
+        screenShake = 8;
+        for (let i = 0; i < 30; i++) {
+            const a = (i / 30) * Math.PI * 2;
+            particles.push({ x: hero.x + Math.cos(a) * 34, y: hero.y + Math.sin(a) * 34, vx: Math.cos(a) * 5, vy: Math.sin(a) * 5, life: 24, color: '#f59e0b', size: 5 });
+        }
+        dealDamageInRadius(hero.x, hero.y, 135, getTotalAttack() * 2.1 * becMult);
+        broadcastPvpState(true);
+    } else if (slot === 2 && hero.skill2Cd <= 0) {
+        hero.skill2Cd = 260;
+        hero.slashAnim = 18;
+        playSound('skill');
+        screenShake = 12;
+        for (let i = 0; i < 36; i++) {
+            const a = (i / 36) * Math.PI * 2;
+            particles.push({ x: hero.x, y: hero.y, vx: Math.cos(a) * 6.5, vy: Math.sin(a) * 6.5, life: 28, color: '#38bdf8', size: 5.5 });
+        }
+        dealDamageInRadius(hero.x, hero.y, 175, getTotalAttack() * 2.8 * becMult);
+        broadcastPvpState(true);
+    }
+}
+
+function manualAttack() {
+    if (hero.attackCd > 0) return;
+    performBasicAttack();
+}
+
+function performBasicAttack() {
+    hero.attackCd = player.heavyStance ? 23 : 15;
+    hero.slashAnim = 12;
+    playSound('slash');
+    const range = player.heroClass === 'monk' ? 115 : 85;
+    dealDamageInRadius(hero.x + Math.cos(hero.angle) * 28, hero.y + Math.sin(hero.angle) * 28, range, getTotalAttack());
+    broadcastPvpState(true);
+}
+
+function dealDamageInRadius(cx, cy, radius, dmg) {
+    let lastTarget = null;
+    const isCrit = Math.random() < (player.heavyStance ? 0.22 : 0.38);
+    const finalDmg = Math.round(dmg * (isCrit ? 1.75 : 1) * (0.92 + Math.random() * 0.16));
+    const vipMult = player.isPremium ? 1.5 : 1.0;
+
+    if (player.zone === 'pk' && db) {
+        Object.keys(remotePlayers).forEach(uid => {
+            const rp = remotePlayers[uid];
+            if (Math.hypot(rp.x - cx, rp.y - cy) <= radius + 20) {
+                db.ref('hanedan_rpg_v2/pvp_hits/' + uid).push({
+                    attacker: player.username,
+                    damage: finalDmg,
+                    ts: Date.now()
+                });
+                spawnFloatingText(rp.x, rp.y - 30, `${isCrit ? 'KRİTİK ' : ''}${finalDmg}`, '#fbbf24', 16);
+                lastTarget = { name: rp.name + ' (Oyuncu)', hp: Math.max(0, rp.hp - finalDmg), maxHp: rp.maxHp };
+            }
+        });
+    }
+
+    for (let i = monsters.length - 1; i >= 0; i--) {
+        const m = monsters[i];
+        if (Math.hypot(m.x - cx, m.y - cy) <= radius) {
+            m.hp -= finalDmg;
+            lastTarget = m;
+            spawnFloatingText(m.x, m.y - 25, `${isCrit ? 'KRİTİK ' : ''}${finalDmg}`, isCrit ? '#fbbf24' : '#fff', isCrit ? 16 : 13);
+
+            if (m.hp <= 0) {
+                const mult = (player.zone === 'pk' ? 2.2 : 1) * vipMult;
+                const goldDrop = Math.round((m.kind === 'orc' ? (12 + Math.random() * 10) : (5 + Math.random() * 6)) * mult);
+                const expDrop = Math.round((m.kind === 'orc' ? 38 : 19) * mult);
+
+                groundDrops.push({ x: m.x, y: m.y, type: 'gold', amount: goldDrop });
+                if (Math.random() < 0.28 * mult) groundDrops.push({ x: m.x + 14, y: m.y, type: 'loot', amount: 1 });
+
+                advanceQuestProgress(m.kind === 'orc' ? 'kill_orc' : 'kill_wolf', 1);
+                gainExp(expDrop);
+
+                monsters.splice(i, 1);
+                setTimeout(() => { if (player.zone !== 'village') spawnSingleMonster(player.zone === 'pk' ? 2.4 : 1); }, 3500);
+            }
+        }
+    }
+
+    for (let i = rifts.length - 1; i >= 0; i--) {
+        const r = rifts[i];
+        if (Math.hypot(r.x - cx, r.y - cy) <= radius + 26) {
+            r.hp -= finalDmg;
+            r.pulse = 7;
+            lastTarget = r;
+            spawnFloatingText(r.x, r.y - 45, `${isCrit ? 'KRİTİK ' : ''}${finalDmg}`, '#38bdf8', 16);
+
+            if (Math.random() < 0.2 && monsters.length < 40) {
+                spawnSingleMonster(player.zone === 'pk' ? 2.4 : 1, r.x, r.y);
+            }
+
+            if (r.hp <= 0) {
+                screenShake = 16;
+                playSound('upgrade_ok');
+                const oreGain = player.zone === 'pk' ? 2 : 1;
+                player.essence += oreGain;
+                if (Math.random() < 0.35) {
+                    player.blessingScrolls++;
+                    showToast(`📜 Metin Taşından Kutsama Kağıdı ve +${oreGain} Cevher Düştü!`, '#c084fc');
+                } else {
+                    showToast(`Kader Kayası Parçalandı! +${oreGain} Kader Cevheri!`, '#10b981');
+                }
+                groundDrops.push({ x: r.x, y: r.y, type: 'gold', amount: Math.round((player.zone === 'pk' ? 160 : 75) * vipMult) });
+                advanceQuestProgress('kill_stone', 1);
+                gainExp(Math.round((player.zone === 'pk' ? 190 : 95) * vipMult));
+                r.hp = r.maxHp;
+                savePlayerState();
+            }
+        }
+    }
+
+    if (lastTarget) {
+        const thud = document.getElementById('target-hud');
+        thud.style.display = 'block';
+        document.getElementById('target-name').innerText = lastTarget.name;
+        document.getElementById('target-hp-text').innerText = `${Math.max(0, lastTarget.hp)} / ${lastTarget.maxHp}`;
+        document.getElementById('target-hp-bar').style.width = `${Math.max(0, (lastTarget.hp / lastTarget.maxHp) * 100)}%`;
+    }
+}
+
+function gainExp(amt) {
+    player.exp += amt;
+    while (player.exp >= player.maxExp) {
+        player.exp -= player.maxExp;
+        player.level++;
+        player.maxExp = Math.round(player.maxExp * 1.62);
+        player.maxHp += 65;
+        player.hp = player.maxHp;
+        player.baseAtk += 7;
+        playSound('upgrade_ok');
+        spawnFloatingText(hero.x, hero.y - 55, `🎉 SEVİYE ${player.level}!`, '#fbbf24', 19);
+        showToast(`Tebrikler! Seviye ${player.level} oldun! Yeni görevlerini kontrol et.`, '#fbbf24');
+    }
+    savePlayerState();
+    updateHudUI();
+}
+
+function spawnFloatingText(x, y, text, color, size = 14) {
+    floatingTexts.push({ x, y, text, color, size, life: 42 });
+}
+
+function updateHudUI() {
+    document.getElementById('hud-lvl').innerText = player.level;
+    document.getElementById('hud-name').innerText = `${player.username} (+${player.weaponLevel})`;
+    document.getElementById('hud-hp-text').innerText = `${Math.round(player.hp)}/${player.maxHp}`;
+    document.getElementById('hud-hp-bar').style.width = `${(player.hp / player.maxHp) * 100}%`;
+    document.getElementById('hud-exp-bar').style.width = `${(player.exp / player.maxExp) * 100}%`;
+    document.getElementById('hud-gold').innerText = player.gold.toLocaleString();
+    document.getElementById('hud-essence').innerText = player.essence;
+    document.getElementById('hud-scrolls').innerText = `${player.blessingScrolls} Kutsama`;
+    document.getElementById('pot-count-label').innerText = `x${player.potions}`;
+
+    const zName = player.zone === 'village' ? t('zone_short_village') : (player.zone === 'valley' ? t('zone_short_valley') : t('zone_short_pk'));
+    document.getElementById('hud-zone-name').innerText = zName;
+}
+
+// ============================================================================
+// 8. DETAYLI PAGODA BİNALARI, AĞAÇLAR, NEHİR VE KARAKTER ÇİZİM FONKSİYONLARI
+// ============================================================================
+function drawPagodaBuilding(ctx, x, y, title, subTitle, roofColor1, roofColor2, isForge) {
+    ctx.save();
+    ctx.translate(x, y);
+
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.55)';
+    ctx.beginPath();
+    ctx.ellipse(8, 28, 78, 30, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = '#334155';
+    ctx.beginPath();
+    ctx.roundRect(-64, -8, 128, 38, 6);
+    ctx.fill();
+    ctx.strokeStyle = '#1e293b';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    ctx.fillStyle = '#271206';
+    ctx.fillRect(-52, -52, 104, 48);
+
+    if (isForge) {
+        const flicker = Math.sin(performance.now() * 0.015) * 4;
+        const fireGrad = ctx.createRadialGradient(-15, -24, 2, -15, -24, 28 + flicker);
+        fireGrad.addColorStop(0, '#fef08a');
+        fireGrad.addColorStop(0.4, '#f97316');
+        fireGrad.addColorStop(1, 'transparent');
+        ctx.fillStyle = fireGrad;
+        ctx.beginPath(); ctx.arc(-15, -24, 28 + flicker, 0, Math.PI * 2); ctx.fill();
+
+        ctx.fillStyle = '#64748b';
+        ctx.fillRect(12, -22, 22, 12);
+    } else {
+        const sway = Math.sin(performance.now() * 0.004) * 3;
+        [-28, 0, 28].forEach(lx => {
+            ctx.fillStyle = '#ef4444';
+            ctx.beginPath();
+            ctx.ellipse(lx + sway, -34, 7, 10, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = '#fbbf24';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+        });
+    }
+
+    ctx.fillStyle = '#78350f';
+    [-48, -18, 18, 44].forEach(px => ctx.fillRect(px, -52, 6, 48));
+
+    const rGrad = ctx.createLinearGradient(0, -105, 0, -45);
+    rGrad.addColorStop(0, roofColor1);
+    rGrad.addColorStop(1, roofColor2);
+    ctx.fillStyle = rGrad;
+
+    ctx.beginPath();
+    ctx.moveTo(-76, -46);
+    ctx.quadraticCurveTo(-40, -68, 0, -72);
+    ctx.quadraticCurveTo(40, -68, 76, -46);
+    ctx.lineTo(62, -40);
+    ctx.lineTo(-62, -40);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = '#fbbf24';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.moveTo(-54, -68);
+    ctx.quadraticCurveTo(0, -104, 54, -68);
+    ctx.lineTo(42, -62);
+    ctx.lineTo(-42, -62);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.fillStyle = 'rgba(9, 13, 22, 0.9)';
+    ctx.beginPath();
+    ctx.roundRect(-52, 8, 104, 20, 5);
+    ctx.fill();
+    ctx.font = '900 10.5px Cinzel';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#fde68a';
+    ctx.fillText(title, 0, 22);
+
+    ctx.restore();
+}
+
+function drawSwayingTree(ctx, p, time) {
+    ctx.save();
+    ctx.translate(p.x, p.y);
+    ctx.scale(p.scale, p.scale);
+
+    const sway = Math.sin(time * 1.8 + p.seed) * 4.5;
+
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.42)';
+    ctx.beginPath();
+    ctx.ellipse(14 + sway * 0.4, 16, 26, 11, 0.2, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = '#3b1d0a';
+    ctx.beginPath();
+    ctx.moveTo(-7, 16);
+    ctx.quadraticCurveTo(-4, -8, -3 + sway * 0.3, -24);
+    ctx.lineTo(4 + sway * 0.3, -24);
+    ctx.quadraticCurveTo(5, -8, 8, 16);
+    ctx.closePath();
+    ctx.fill();
+
+    const isPk = player.zone === 'pk';
+    const cDark = isPk ? '#4c0519' : '#064e3b';
+    const cMid = isPk ? '#881337' : '#047857';
+    const cLight = isPk ? '#e11d48' : '#10b981';
+
+    const clusters = [
+        { ox: -14 + sway * 0.7, oy: -28, r: 17, col: cDark },
+        { ox: 14 + sway * 0.8, oy: -26, r: 16, col: cDark },
+        { ox: 0 + sway, oy: -38, r: 20, col: cMid },
+        { ox: -6 + sway * 1.1, oy: -44, r: 13, col: cLight }
+    ];
+    clusters.forEach(cl => {
+        ctx.fillStyle = cl.col;
+        ctx.beginPath();
+        ctx.arc(cl.ox, cl.oy, cl.r, 0, Math.PI * 2);
+        ctx.fill();
+    });
+
+    ctx.restore();
+}
+
+function drawRiverAndBridges(ctx, time) {
+    ctx.save();
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
+    ctx.strokeStyle = '#292524';
+    ctx.lineWidth = 114;
+    ctx.beginPath();
+    for (let x = -WORLD_HALF; x <= WORLD_HALF; x += 80) {
+        const y = getRiverCenterY(x);
+        if (x === -WORLD_HALF) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+
+    ctx.strokeStyle = player.zone === 'pk' ? '#450a0a' : '#082f49';
+    ctx.lineWidth = 96;
+    ctx.stroke();
+
+    ctx.strokeStyle = player.zone === 'pk' ? '#7f1d1d' : '#0284c7';
+    ctx.lineWidth = 72 + Math.sin(time * 3) * 4;
+    ctx.stroke();
+
+    ctx.strokeStyle = player.zone === 'pk' ? 'rgba(252, 165, 165, 0.35)' : 'rgba(186, 230, 253, 0.4)';
+    ctx.lineWidth = 2.5;
+    for (let x = -WORLD_HALF; x <= WORLD_HALF; x += 90) {
+        const waveShift = (time * 40) % 90;
+        const wx = x + waveShift;
+        const wy = getRiverCenterY(wx) + Math.sin(time * 4 + x) * 14;
+        ctx.beginPath();
+        ctx.moveTo(wx - 18, wy);
+        ctx.quadraticCurveTo(wx, wy - 5, wx + 18, wy);
+        ctx.stroke();
+    }
+
+    [-900, 0, 900].forEach(bx => {
+        const by = getRiverCenterY(bx);
+        ctx.fillStyle = 'rgba(0,0,0,0.45)';
+        ctx.fillRect(bx - 48, by - 66, 96, 136);
+        ctx.fillStyle = '#451a03';
+        ctx.fillRect(bx - 44, by - 64, 88, 128);
+        ctx.fillStyle = '#78350f';
+        for (let py = -58; py <= 54; py += 12) {
+            ctx.fillRect(bx - 40, by + py, 80, 8);
+        }
+        ctx.fillStyle = '#fbbf24';
+        ctx.fillRect(bx - 44, by - 64, 6, 128);
+        ctx.fillRect(bx + 38, by - 64, 6, 128);
+    });
+
+    ctx.restore();
+}
+
+function drawHumanoidCharacter(ctx, x, y, angle, walkFrame, cls, weaponLvl, name, hp, maxHp, slashAnim, isMainHero, time) {
+    ctx.save();
+    ctx.translate(x, y);
+
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+    ctx.beginPath();
+    ctx.ellipse(4, 19, 18, 8, 0.15, 0, Math.PI * 2);
+    ctx.fill();
+
+    if (weaponLvl >= 7) {
+        const auraCol = weaponLvl >= 9 ? '#f43f5e' : (weaponLvl === 8 ? '#38bdf8' : '#fbbf24');
+        ctx.strokeStyle = auraCol;
+        ctx.lineWidth = 2.2;
+        ctx.beginPath();
+        ctx.ellipse(0, 18, 24 + Math.sin(time * 6) * 3, 10, 0, 0, Math.PI * 2);
+        ctx.stroke();
+    }
+
+    const wave1 = Math.sin(time * 5 + walkFrame * 0.3) * 5;
+    const wave2 = Math.cos(time * 4 + walkFrame * 0.3) * 7;
+    const capeGrad = ctx.createLinearGradient(0, -8, 0, 18);
+    capeGrad.addColorStop(0, isMainHero ? '#991b1b' : '#3b0764');
+    capeGrad.addColorStop(1, isMainHero ? '#450a0a' : '#1e1b4b');
+    ctx.fillStyle = capeGrad;
+    ctx.beginPath();
+    ctx.moveTo(-10, -7);
+    ctx.lineTo(10, -7);
+    ctx.quadraticCurveTo(14 + wave1, 5, 15 + wave2, 17);
+    ctx.quadraticCurveTo(0, 19, -15 + wave2, 17);
+    ctx.quadraticCurveTo(-14 + wave1, 5, -10, -7);
+    ctx.closePath();
+    ctx.fill();
+
+    const legSwing = Math.sin(walkFrame * 0.38) * 5.5;
+    ctx.fillStyle = '#0f172a';
+    ctx.fillRect(-7, 8 + legSwing, 5.5, 11);
+    ctx.fillRect(2, 8 - legSwing, 5.5, 11);
+
+    const armorGrad = ctx.createLinearGradient(-11, -10, 11, 12);
+    armorGrad.addColorStop(0, weaponLvl >= 7 ? '#fde047' : '#cbd5e1');
+    armorGrad.addColorStop(0.5, weaponLvl >= 7 ? '#b45309' : '#475569');
+    armorGrad.addColorStop(1, '#0f172a');
+    ctx.fillStyle = armorGrad;
+    ctx.beginPath();
+    ctx.roundRect(-11, -9, 22, 19, 5);
+    ctx.fill();
+    ctx.strokeStyle = '#fbbf24';
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+
+    ctx.fillStyle = '#334155';
+    ctx.beginPath(); ctx.arc(-12, -5, 6, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.arc(12, -5, 6, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+
+    ctx.fillStyle = '#fde68a';
+    ctx.beginPath(); ctx.arc(0, -15, 7.5, 0, Math.PI * 2); ctx.fill();
+
+    const helmGrad = ctx.createLinearGradient(-8, -24, 8, -12);
+    helmGrad.addColorStop(0, '#94a3b8');
+    helmGrad.addColorStop(1, '#1e293b');
+    ctx.fillStyle = helmGrad;
+    ctx.beginPath();
+    ctx.arc(0, -16, 8.2, Math.PI, Math.PI * 2);
+    ctx.fill();
+
+    ctx.strokeStyle = '#ef4444';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(0, -24);
+    ctx.quadraticCurveTo(-6 + wave1 * 0.6, -30, -12 + wave2 * 0.8, -26);
+    ctx.stroke();
+
+    ctx.save();
+    const swing = slashAnim > 0 ? Math.sin((12 - slashAnim) * 0.45) * 1.65 : 0;
+    ctx.rotate(angle + swing);
+
+    if (cls === 'blade') {
+        ctx.fillStyle = '#78350f';
+        ctx.fillRect(10, -2, 7, 4);
+        ctx.fillStyle = '#fbbf24';
+        ctx.fillRect(16, -7, 3.5, 14);
+
+        const bGrad = ctx.createLinearGradient(18, -6, 44, 6);
+        bGrad.addColorStop(0, weaponLvl >= 9 ? '#fef08a' : '#f8fafc');
+        bGrad.addColorStop(1, weaponLvl >= 7 ? '#38bdf8' : '#64748b');
+        ctx.fillStyle = bGrad;
+        ctx.beginPath();
+        ctx.moveTo(19, -5.5);
+        ctx.quadraticCurveTo(34, -9, 44, 0);
+        ctx.quadraticCurveTo(34, 7, 19, 4.5);
+        ctx.closePath();
+        ctx.fill();
+    } else {
+        ctx.strokeStyle = '#78350f';
+        ctx.lineWidth = 3.5;
+        ctx.beginPath(); ctx.moveTo(6, 0); ctx.lineTo(38, 0); ctx.stroke();
+        ctx.fillStyle = '#38bdf8';
+        ctx.beginPath();
+        ctx.moveTo(38, -6); ctx.lineTo(50, 0); ctx.lineTo(38, 6); ctx.closePath();
+        ctx.fill();
+    }
+
+    // +7, +8, +9 Silah Yıldız Kıvılcımları
+    if (weaponLvl >= 7) {
+        const spCol = weaponLvl >= 9 ? '#fef08a' : '#38bdf8';
+        for (let s = 0; s < 3; s++) {
+            const sx = 24 + Math.cos(time * 8 + s * 2) * 9;
+            const sy = Math.sin(time * 10 + s * 2) * 5;
+            ctx.fillStyle = spCol;
+            ctx.beginPath(); ctx.arc(sx, sy, 2.2, 0, Math.PI * 2); ctx.fill();
+        }
+    }
+
+    if (slashAnim > 0) {
+        ctx.strokeStyle = weaponLvl >= 7 ? 'rgba(251, 191, 36, 0.9)' : 'rgba(56, 189, 248, 0.8)';
+        ctx.lineWidth = 6;
+        ctx.beginPath();
+        ctx.arc(0, 0, 42, -0.85, 0.85);
+        ctx.stroke();
+    }
+    ctx.restore();
+
+    ctx.font = '900 10px Nunito';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = isMainHero ? '#fde68a' : '#fda4af';
+    ctx.fillText(`${isMainHero && player.isPremium ? '👑 ' : ''}${name} (+${weaponLvl})`, 0, -32);
+
+    ctx.fillStyle = 'rgba(0,0,0,0.8)';
+    ctx.fillRect(-19, -27, 38, 4.5);
+    ctx.fillStyle = isMainHero ? '#10b981' : '#e11d48';
+    ctx.fillRect(-19, -27, Math.max(0, (hp / maxHp) * 38), 4.5);
+
+    ctx.restore();
+}
+
+// ============================================================================
+// 9. ANA OYUN VE RADAR (MİNİ-HARİTA) DÖNGÜSÜ
+// ============================================================================
+function updateGame() {
+    if (!document.getElementById('screen-game').classList.contains('active')) return;
+
+    if (hero.attackCd > 0) hero.attackCd--;
+    if (hero.dashCd > 0) hero.dashCd--;
+    if (hero.skill1Cd > 0) hero.skill1Cd--;
+    if (hero.skill2Cd > 0) hero.skill2Cd--;
+    if (hero.invulnerable > 0) hero.invulnerable--;
+    if (hero.slashAnim > 0) hero.slashAnim--;
+    if (screenShake > 0) screenShake *= 0.85;
+
+    document.getElementById('cd-dash').style.height = `${(hero.dashCd / 90) * 100}%`;
+    document.getElementById('cd-skill1').style.height = `${(hero.skill1Cd / 190) * 100}%`;
+    document.getElementById('cd-skill2').style.height = `${(hero.skill2Cd / 260) * 100}%`;
+
+    if (player.zone === 'village' && player.hp < player.maxHp) {
+        player.hp = Math.min(player.maxHp, player.hp + 2.2);
+        updateHudUI();
+    }
+
+    if ((player.hp / player.maxHp) * 100 <= player.autoPotThreshold && player.potions > 0) {
+        usePotion();
+    }
+
+    let nextX = hero.x, nextY = hero.y;
+
+    if (joystick.active) {
+        nextX += joystick.dx * hero.speed;
+        nextY += joystick.dy * hero.speed;
+        hero.angle = Math.atan2(joystick.dy, joystick.dx);
+        hero.walkFrame++;
+        broadcastPvpState(false);
+    } else if (player.isPremium && player.autoMode && player.zone !== 'village') {
+        let nearest = null, minDist = Infinity;
+        monsters.forEach(m => { const d = Math.hypot(m.x - hero.x, m.y - hero.y); if (d < minDist) { minDist = d; nearest = m; } });
+        rifts.forEach(r => { const d = Math.hypot(r.x - hero.x, r.y - hero.y); if (d < minDist) { minDist = d; nearest = r; } });
+
+        if (nearest) {
+            hero.angle = Math.atan2(nearest.y - hero.y, nearest.x - hero.x);
+            if (minDist > 54) {
+                nextX += Math.cos(hero.angle) * (hero.speed * 0.88);
+                nextY += Math.sin(hero.angle) * (hero.speed * 0.88);
+                hero.walkFrame++;
+                broadcastPvpState(false);
+            } else {
+                if (hero.attackCd <= 0) performBasicAttack();
+                if (hero.skill1Cd <= 0) useSkill(1);
+            }
+        }
+    }
+
+    const riverY = getRiverCenterY(nextX);
+    if (Math.abs(nextY - riverY) < 38 && !isNearBridge(nextX)) {
+        hero.x += (nextX - hero.x) * 0.55;
+        hero.y += (nextY - hero.y) * 0.55;
+    } else {
+        hero.x = nextX;
+        hero.y = nextY;
+    }
+
+    hero.x = Math.max(-WORLD_HALF + 80, Math.min(WORLD_HALF - 80, hero.x));
+    hero.y = Math.max(-WORLD_HALF + 80, Math.min(WORLD_HALF - 80, hero.y));
+
+    document.getElementById('coords-label').innerText = `${Math.round(hero.x / 10)} , ${Math.round(hero.y / 10)}`;
+
+    rifts.forEach(r => {
+        if (r.pulse > 0) r.pulse--;
+        if (Math.hypot(hero.x - r.x, hero.y - r.y) < 350) {
+            r.telegraphTimer--;
+            if (r.telegraphTimer <= 0) {
+                r.telegraphRadius += 2.2;
+                if (r.telegraphRadius >= 115) {
+                    if (Math.hypot(hero.x - r.x, hero.y - r.y) <= 115 && hero.invulnerable <= 0) {
+                        const dmg = player.zone === 'pk' ? 120 : 65;
+                        player.hp = Math.max(1, player.hp - dmg);
+                        spawnFloatingText(hero.x, hero.y - 30, `-${dmg} KAYA PATLAMASI!`, '#e11d48', 15);
+                        updateHudUI();
+                    }
+                    r.telegraphRadius = 0;
+                    r.telegraphTimer = 145;
+                }
+            }
+        }
+    });
+
+    monsters.forEach(m => {
+        const d = Math.hypot(hero.x - m.x, hero.y - m.y);
+        if (d < 250 && d > 30) {
+            m.angle = Math.atan2(hero.y - m.y, hero.x - m.x);
+            m.x += Math.cos(m.angle) * m.speed;
+            m.y += Math.sin(m.angle) * m.speed;
+            m.walkFrame += 0.22;
+        }
+        if (m.hitCd > 0) m.hitCd--;
+        if (d <= 35 && m.hitCd <= 0 && hero.invulnerable <= 0) {
+            m.hitCd = 55;
+            player.hp = Math.max(0, player.hp - m.atk);
+            spawnFloatingText(hero.x, hero.y - 25, `-${m.atk}`, '#ef4444', 13);
+            if (player.hp <= 0) {
+                player.hp = player.maxHp;
+                changeMapZone('village');
+                showToast("Ağır yaralandın ve Sancak Köyü'ne taşındın!", "#e11d48");
+            }
+            updateHudUI();
+        }
+    });
+
+    for (let i = groundDrops.length - 1; i >= 0; i--) {
+        const g = groundDrops[i];
+        const d = Math.hypot(hero.x - g.x, hero.y - g.y);
+        if (d < 90) {
+            g.x += (hero.x - g.x) * 0.2;
+            g.y += (hero.y - g.y) * 0.2;
+        }
+        if (d < 22) {
+            if (g.type === 'gold') {
+                player.gold += g.amount;
+                spawnFloatingText(hero.x, hero.y - 35, `+${g.amount} Akçe`, '#fbbf24', 12);
+            } else {
+                player.lootCount++;
+                spawnFloatingText(hero.x, hero.y - 35, `+1 Ganimet`, '#c084fc', 12);
+            }
+            groundDrops.splice(i, 1);
+            savePlayerState();
+            updateHudUI();
+        }
+    }
+}
+
+function renderGame() {
+    if (!document.getElementById('screen-game').classList.contains('active')) return;
+
+    const time = performance.now() * 0.001;
+    ctx.save();
+
+    const shakeX = (Math.random() - 0.5) * screenShake;
+    const shakeY = (Math.random() - 0.5) * screenShake;
+    const camX = canvas.width / 2 - hero.x + shakeX;
+    const camY = canvas.height / 2 - hero.y + shakeY;
+
+    ctx.translate(camX, camY);
+
+    // 1. PROSEDÜREL DOKULU ZEMİN
+    ctx.fillStyle = groundPatterns[player.zone] || '#142016';
+    ctx.fillRect(-WORLD_HALF, -WORLD_HALF, WORLD_HALF * 2, WORLD_HALF * 2);
+
+    // 2. TAŞ DÖŞELİ YOLLAR VE MEYDAN
+    ctx.fillStyle = player.zone === 'pk' ? 'rgba(55, 22, 28, 0.78)' : 'rgba(64, 56, 46, 0.78)';
+    ctx.fillRect(-44, -WORLD_HALF, 88, WORLD_HALF * 2);
+    ctx.fillRect(-WORLD_HALF, -44, WORLD_HALF * 2, 88);
+
+    ctx.beginPath();
+    ctx.ellipse(0, 0, 240, 195, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(245, 158, 11, 0.35)';
+    ctx.lineWidth = 4;
+    ctx.stroke();
+
+    // 3. DALGALANAN NEHİR VE AHŞAP KÖPRÜLER
+    drawRiverAndBridges(ctx, time);
+
+    // 4. RÜZGARDA DALGALANAN ÇİMEN ÖBEKLERİ
+    ctx.strokeStyle = player.zone === 'pk' ? '#9f1239' : '#15803d';
+    ctx.lineWidth = 2;
+    grassTufts.forEach(gt => {
+        if (Math.abs(gt.x - hero.x) > 320 || Math.abs(gt.y - hero.y) > 480) return;
+        const sway = Math.sin(time * 3 + gt.phase) * 4;
+        ctx.beginPath();
+        ctx.moveTo(gt.x, gt.y); ctx.lineTo(gt.x - 4 + sway, gt.y - 9);
+        ctx.moveTo(gt.x, gt.y); ctx.lineTo(gt.x + 4 + sway, gt.y - 10);
+        ctx.stroke();
+    });
+
+    // 5. YERDEKİ GANİMET IŞIK SÜTUNLARI
+    groundDrops.forEach(g => {
+        const grad = ctx.createLinearGradient(g.x, g.y, g.x, g.y - 38);
+        grad.addColorStop(0, g.type === 'gold' ? 'rgba(251, 191, 36, 0.9)' : 'rgba(192, 132, 252, 0.9)');
+        grad.addColorStop(1, 'transparent');
+        ctx.fillStyle = grad;
+        ctx.fillRect(g.x - 4, g.y - 38, 8, 38);
+        ctx.fillStyle = g.type === 'gold' ? '#fbbf24' : '#c084fc';
+        ctx.beginPath(); ctx.arc(g.x, g.y, 5, 0, Math.PI * 2); ctx.fill();
+    });
+
+    // 6. Y-SORTING (DERİNLİK SIRALAMASI)
+    const renderQueue = [];
+
+    if (player.zone === 'village') {
+        renderQueue.push({
+            y: -45,
+            draw: () => drawPagodaBuilding(ctx, -135, -45, 'DEMİRCİ OCAĞI', '', '#991b1b', '#450a0a', true)
+        });
+        renderQueue.push({
+            y: -45,
+            draw: () => drawPagodaBuilding(ctx, 135, -45, 'ONLINE PAZAR', '', '#1e3a8a', '#172554', false)
+        });
+    }
+
+    envProps.forEach(p => {
+        if (Math.abs(p.x - hero.x) > 360 || Math.abs(p.y - hero.y) > 540) return;
+        renderQueue.push({
+            y: p.y,
+            draw: () => {
+                if (p.type === 'tree') drawSwayingTree(ctx, p, time);
+                else {
+                    ctx.save();
+                    ctx.translate(p.x, p.y);
+                    ctx.fillStyle = 'rgba(0,0,0,0.4)';
+                    ctx.beginPath(); ctx.ellipse(4, 10, 20, 8, 0, 0, Math.PI * 2); ctx.fill();
+                    ctx.fillStyle = '#334155';
+                    ctx.beginPath(); ctx.moveTo(-18, 8); ctx.lineTo(-8, -14); ctx.lineTo(12, -8); ctx.lineTo(18, 8); ctx.closePath(); ctx.fill();
+                    ctx.restore();
+                }
+            }
+        });
+    });
+
+    torches.forEach(tObj => {
+        renderQueue.push({
+            y: tObj.y,
+            draw: () => {
+                ctx.save();
+                ctx.translate(tObj.x, tObj.y);
+                ctx.fillStyle = '#451a03';
+                ctx.fillRect(-3, -18, 6, 22);
+                ctx.fillStyle = '#fbbf24';
+                ctx.beginPath(); ctx.arc(0, -21, 5 + Math.sin(time * 12) * 1.5, 0, Math.PI * 2); ctx.fill();
+                ctx.restore();
+            }
+        });
+    });
+
+    rifts.forEach(r => {
+        if (Math.abs(r.x - hero.x) > 380 || Math.abs(r.y - hero.y) > 560) return;
+        renderQueue.push({
+            y: r.y,
+            draw: () => {
+                ctx.save();
+                ctx.translate(r.x, r.y);
+                if (r.telegraphRadius > 0) {
+                    ctx.strokeStyle = 'rgba(225, 29, 72, 0.9)';
+                    ctx.fillStyle = 'rgba(225, 29, 72, 0.22)';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.ellipse(0, 8, r.telegraphRadius, r.telegraphRadius * 0.55, 0, 0, Math.PI * 2);
+                    ctx.fill(); ctx.stroke();
+                }
+                ctx.fillStyle = 'rgba(0,0,0,0.6)';
+                ctx.beginPath(); ctx.ellipse(0, 14, 30, 12, 0, 0, Math.PI * 2); ctx.fill();
+                const sc = 1 + r.pulse * 0.03;
+                ctx.scale(sc, sc);
+                const rg = ctx.createLinearGradient(-20, -42, 20, 16);
+                rg.addColorStop(0, r.tier === 2 ? '#991b1b' : '#6b21a8');
+                rg.addColorStop(1, '#090d16');
+                ctx.fillStyle = rg;
+                ctx.beginPath();
+                ctx.moveTo(0, -42); ctx.lineTo(19, -20); ctx.lineTo(24, 10); ctx.lineTo(0, 18); ctx.lineTo(-24, 10); ctx.lineTo(-18, -22);
+                ctx.closePath(); ctx.fill();
+                ctx.strokeStyle = '#f43f5e'; ctx.lineWidth = 2.2;
+                ctx.beginPath(); ctx.moveTo(0, -32); ctx.lineTo(-6, -12); ctx.lineTo(6, 4); ctx.lineTo(-4, 14); ctx.stroke();
+                ctx.restore();
+            }
+        });
+    });
+
+    monsters.forEach(m => {
+        if (Math.abs(m.x - hero.x) > 360 || Math.abs(m.y - hero.y) > 540) return;
+        renderQueue.push({
+            y: m.y,
+            draw: () => {
+                ctx.save();
+                ctx.translate(m.x, m.y);
+                ctx.fillStyle = 'rgba(0,0,0,0.45)';
+                ctx.beginPath(); ctx.ellipse(0, 13, 15, 6, 0, 0, Math.PI * 2); ctx.fill();
+                const bounce = Math.sin(m.walkFrame) * 2.5;
+                const legMove = Math.sin(m.walkFrame * 1.4) * 3.5;
+                if (m.kind === 'wolf') {
+                    // Detaylı Alfa Mavi Kurt (4 Bacak, Kuyruk, Sivri Kulak, Çene)
+                    ctx.fillStyle = '#334155';
+                    ctx.fillRect(-9, 6 + legMove, 3.5, 8);
+                    ctx.fillRect(5, 6 - legMove, 3.5, 8);
+                    ctx.fillStyle = '#475569';
+                    ctx.beginPath(); ctx.ellipse(0, 2 + bounce, 14, 7.5, 0, 0, Math.PI * 2); ctx.fill();
+                    // Kuyruk
+                    ctx.beginPath(); ctx.moveTo(-12, 1 + bounce); ctx.lineTo(-20, -4 + bounce); ctx.lineTo(-14, 5 + bounce); ctx.fill();
+                    // Kurt Başı ve Kulaklar
+                    ctx.beginPath(); ctx.arc(10, -4 + bounce, 6.5, 0, Math.PI * 2); ctx.fill();
+                    ctx.beginPath(); ctx.moveTo(7, -9 + bounce); ctx.lineTo(10, -16 + bounce); ctx.lineTo(13, -9 + bounce); ctx.fill();
+                    ctx.fillStyle = '#ef4444'; ctx.fillRect(12, -6 + bounce, 2.5, 2.5);
+                } else {
+                    // Detaylı Kızıl Ork Savaşçısı (Omuzluk, Dişler ve Savaş Baltası)
+                    ctx.fillStyle = '#1e293b';
+                    ctx.fillRect(-7, 8 + legMove, 5, 9);
+                    ctx.fillRect(2, 8 - legMove, 5, 9);
+                    ctx.fillStyle = '#7f1d1d';
+                    ctx.beginPath(); ctx.roundRect(-11, -9 + bounce, 22, 19, 5); ctx.fill();
+                    ctx.fillStyle = '#991b1b';
+                    ctx.beginPath(); ctx.arc(0, -14 + bounce, 8, 0, Math.PI * 2); ctx.fill();
+                    // Ork Dişleri
+                    ctx.fillStyle = '#fef08a';
+                    ctx.fillRect(-4, -11 + bounce, 2, 3);
+                    ctx.fillRect(2, -11 + bounce, 2, 3);
+                    // Savaş Baltası
+                    ctx.fillStyle = '#78350f'; ctx.fillRect(11, -16 + bounce, 4, 22);
+                    ctx.fillStyle = '#94a3b8';
+                    ctx.beginPath(); ctx.moveTo(13, -15 + bounce); ctx.lineTo(22, -20 + bounce); ctx.lineTo(22, -6 + bounce); ctx.closePath(); ctx.fill();
+                }
+                ctx.fillStyle = '#000'; ctx.fillRect(-16, -25, 32, 4);
+                ctx.fillStyle = '#ef4444'; ctx.fillRect(-16, -25, Math.max(0, (m.hp / m.maxHp) * 32), 4);
+                ctx.restore();
+            }
+        });
+    });
+
+    if (player.zone === 'pk') {
+        Object.keys(remotePlayers).forEach(uid => {
+            const rp = remotePlayers[uid];
+            renderQueue.push({
+                y: rp.y,
+                draw: () => drawHumanoidCharacter(
+                    ctx, rp.x, rp.y, rp.angle || 0, time * 8,
+                    rp.heroClass || 'blade', rp.weaponLevel || 0,
+                    rp.name || 'RAKİP', rp.hp || 500, rp.maxHp || 500,
+                    rp.slashAnim || 0, false, time
+                )
+            });
+        });
+    }
+
+    renderQueue.push({
+        y: hero.y,
+        draw: () => drawHumanoidCharacter(
+            ctx, hero.x, hero.y, hero.angle, hero.walkFrame,
+            player.heroClass, player.weaponLevel,
+            player.username, player.hp, player.maxHp,
+            hero.slashAnim, true, time
+        )
+    });
+
+    renderQueue.sort((a, b) => a.y - b.y);
+    renderQueue.forEach(item => item.draw());
+
+    // 7. DİNAMİK IŞIKLANDIRMA KATMANI (ADDITIVE SHADER GLOW)
+    ctx.globalCompositeOperation = 'lighter';
+    torches.forEach(tObj => {
+        const g = ctx.createRadialGradient(tObj.x, tObj.y - 18, 2, tObj.x, tObj.y - 18, 75);
+        g.addColorStop(0, 'rgba(251, 191, 36, 0.28)');
+        g.addColorStop(1, 'transparent');
+        ctx.fillStyle = g;
+        ctx.beginPath(); ctx.arc(tObj.x, tObj.y - 18, 75, 0, Math.PI * 2); ctx.fill();
+    });
+
+    rifts.forEach(r => {
+        const g = ctx.createRadialGradient(r.x, r.y - 10, 4, r.x, r.y - 10, 95);
+        g.addColorStop(0, 'rgba(192, 132, 252, 0.32)');
+        g.addColorStop(1, 'transparent');
+        ctx.fillStyle = g;
+        ctx.beginPath(); ctx.arc(r.x, r.y - 10, 95, 0, Math.PI * 2); ctx.fill();
+    });
+    ctx.globalCompositeOperation = 'source-over';
+
+    // 8. EFEKTLER VE HASAR YAZILARI
+    for (let i = particles.length - 1; i >= 0; i--) {
+        const pt = particles[i];
+        pt.x += pt.vx; pt.y += pt.vy; pt.life--;
+        ctx.fillStyle = pt.color;
+        ctx.beginPath(); ctx.arc(pt.x, pt.y, pt.size * (pt.life / 25), 0, Math.PI * 2); ctx.fill();
+        if (pt.life <= 0) particles.splice(i, 1);
+    }
+
+    for (let i = floatingTexts.length - 1; i >= 0; i--) {
+        const ft = floatingTexts[i];
+        ft.y -= 0.85; ft.life--;
+        ctx.font = `900 ${ft.size}px Nunito`;
+        ctx.fillStyle = ft.color;
+        ctx.textAlign = 'center';
+        ctx.fillText(ft.text, ft.x, ft.y);
+        if (ft.life <= 0) floatingTexts.splice(i, 1);
+    }
+
+    ctx.restore();
+
+    // 9. EKRAN KENARI SİNEMATİK VİNYET GÖLGELENDİRMESİ
+    const vig = ctx.createRadialGradient(canvas.width / 2, canvas.height / 2, canvas.width * 0.32, canvas.width / 2, canvas.height / 2, canvas.height * 0.65);
+    vig.addColorStop(0, 'transparent');
+    vig.addColorStop(1, 'rgba(2, 4, 9, 0.62)');
+    ctx.fillStyle = vig;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    renderMinimap();
+}
+
+function renderMinimap() {
+    miniCtx.fillStyle = '#060a12';
+    miniCtx.fillRect(0, 0, 82, 82);
+
+    const scale = 82 / (WORLD_HALF * 2);
+    const toMini = val => (val + WORLD_HALF) * scale;
+
+    miniCtx.strokeStyle = '#0284c7';
+    miniCtx.lineWidth = 2;
+    miniCtx.beginPath();
+    miniCtx.moveTo(0, toMini(420));
+    miniCtx.lineTo(82, toMini(420));
+    miniCtx.stroke();
+
+    miniCtx.fillStyle = '#ef4444';
+    monsters.forEach(m => {
+        miniCtx.fillRect(toMini(m.x) - 1, toMini(m.y) - 1, 2, 2);
+    });
+
+    miniCtx.fillStyle = '#c084fc';
+    rifts.forEach(r => {
+        miniCtx.fillRect(toMini(r.x) - 2, toMini(r.y) - 2, 4, 4);
+    });
+
+    miniCtx.fillStyle = '#fbbf24';
+    Object.keys(remotePlayers).forEach(uid => {
+        const rp = remotePlayers[uid];
+        miniCtx.fillRect(toMini(rp.x) - 2, toMini(rp.y) - 2, 4, 4);
+    });
+
+    miniCtx.fillStyle = '#10b981';
+    miniCtx.beginPath();
+    miniCtx.arc(toMini(hero.x), toMini(hero.y), 3, 0, Math.PI * 2);
+    miniCtx.fill();
+}
+
+function gameLoop() {
+    updateGame();
+    renderGame();
+    requestAnimationFrame(gameLoop);
+}
+
+setLanguage(currentLang);
+updateVipButtonsUI();
+requestAnimationFrame(gameLoop);
+</script>
+</body>
+</html>
