@@ -1516,6 +1516,17 @@ html,body{overscroll-behavior:none}#app-frame{max-width:none;width:100vw;height:
                 </button>
             </div>
 
+            <div style="background:linear-gradient(135deg,rgba(124,58,237,.22),rgba(15,23,42,.55));border:2px solid #a78bfa;border-radius:14px;padding:12px;margin-bottom:10px;">
+                <div style="font-size:13px;font-weight:900;color:#e9d5ff;margin-bottom:4px;">🐾 PREMIUM PET KOLEKSİYONU</div>
+                <div style="font-size:10.5px;color:#cbd5e1;line-height:1.45;margin-bottom:9px;">Premium aktifken peti koleksiyonuna ekler. Petler ayrıca bosslardan %0,001 ihtimalle düşebilir.</div>
+                <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;">
+                    <button class="btn btn-primary" style="font-size:10px;padding:8px 5px;" onclick="buyRealMoneyPack('pet_ember_fox',49.99)">🦊 Tilki · ₺49,99</button>
+                    <button class="btn btn-primary" style="font-size:10px;padding:8px 5px;" onclick="buyRealMoneyPack('pet_moon_wolf',69.99)">🐺 Kurt · ₺69,99</button>
+                    <button class="btn btn-primary" style="font-size:10px;padding:8px 5px;" onclick="buyRealMoneyPack('pet_crystal_sprite',89.99)">🧚 Peri · ₺89,99</button>
+                    <button class="btn btn-gold" style="font-size:10px;padding:8px 5px;" onclick="buyRealMoneyPack('pet_storm_dragon',129.99)">🐉 Ejder · ₺129,99</button>
+                </div>
+            </div>
+
             <div class="setting-row" style="border-color: #38bdf8;">
                 <div>
                     <div style="font-size: 12px; font-weight: 900; color: #7dd3fc;">💎 15x Kader Cevheri + 3x Kutsama Kağıdı</div>
@@ -3210,6 +3221,14 @@ async function buyRealMoneyPack(packId, priceTL) {
     } else if (packId === 'emperor_pack') {
         player.gold += 15000; player.essence += 30; player.blessingScrolls += 15;
         showToast(`🪙 İmparator Hazinesi Hesabına Eklendi!`, '#10b981');
+    } else if (packId.startsWith('pet_')) {
+        if (typeof hasVip === 'function' && !hasVip()) {
+            showToast('🔒 Pet satın almak için önce Premium/VIP üyeliği aktif etmelisin.', '#fbbf24');
+            return;
+        }
+        const petMap={pet_ember_fox:'emberFox',pet_moon_wolf:'moonWolf',pet_crystal_sprite:'crystalSprite',pet_storm_dragon:'stormDragon'};
+        const petId=petMap[packId],a=hdInit();
+        if (petId && HD_PETS[petId]) { a.pets.owned[petId]=true;hdPetProgress(petId);a.pets.active=petId;a.pets.actor=null;showToast(`${HD_PETS[petId].icon} ${HD_PETS[petId].name} Premium koleksiyonuna eklendi!`,'#c084fc'); }
     }
     playSound('upgrade_ok');
     syncAccountCharsToStorage();
@@ -3880,6 +3899,7 @@ function dealDamageInRadius(cx, cy, radius, dmg) {
         if (Math.hypot(m.x - cx, m.y - cy) <= radius) {
             const hitDmg = Math.min(finalDmg, Math.max(1, Math.ceil(m.maxHp * 0.42)));
             m.hp -= hitDmg;
+            if(m.boss)m.hitFlash=7;
             m.alerted=true;
             alertMobGroup(m);
             lastTarget = m;
@@ -3893,7 +3913,7 @@ function dealDamageInRadius(cx, cy, radius, dmg) {
 
                 groundDrops.push({ x: m.x, y: m.y, type: 'gold', amount: goldDrop });
                 if (Math.random() < 0.28 * mult) groundDrops.push({ x: m.x + 14, y: m.y, type: 'loot', amount: 1 });
-                tryDropGearFromMob(m);
+                tryDropGearFromMob(m);if(m.boss)tryDropBossPet(m);
 
                 advanceQuestProgress(m.kind.startsWith('orc') || m.kind === 'frost_orc' ? 'kill_orc' : 'kill_wolf', 1);
                 gainExp(expDrop);
@@ -4591,6 +4611,7 @@ function updateGame() {
     if (hero.invulnerable > 0) hero.invulnerable--;
     if (hero.slashAnim > 0) hero.slashAnim--;
     if (screenShake > 0) screenShake *= 0.85;
+    if (hd.bossHitFlash > 0) hd.bossHitFlash--;
 
     document.getElementById('cd-dash').style.height = `${(hero.dashCd / 90) * 100}%`;
     document.getElementById('cd-skill1').style.height = `${(hero.skill1Cd / 190) * 100}%`;
@@ -4713,10 +4734,12 @@ function updateGame() {
             }
         }
         if (m.hitCd > 0) m.hitCd--;
+        if (m.hitFlash > 0) m.hitFlash--;
         if (d <= 35 && m.hitCd <= 0 && hero.invulnerable <= 0) {
             m.hitCd = 55;
             const netMobDmg = Math.max(3, m.atk - Math.round(getTotalDefense() * 0.28));
             applyIncomingDamage(netMobDmg);
+            if(m.boss){screenShake=Math.max(screenShake,26);hd.bossHitFlash=10;hdBurst(m.x,m.y-42,m.bossColor||'#fbbf24',16);hd.fx.push({x:m.x,y:m.y-18,life:26,max:26,ring:true,color:m.bossColor||'#fbbf24',radius:58});}
             spawnFloatingText(hero.x, hero.y - 25, `-${netMobDmg}`, '#ef4444', 13);
             if (player.hp <= 0) {
                 player.hp = maxH;
@@ -4738,6 +4761,9 @@ function updateGame() {
             if (g.type === 'gold') {
                 player.gold += g.amount;
                 spawnFloatingText(hero.x, hero.y - 35, `+${g.amount} Akçe`, '#fbbf24', 12);
+            } else if (g.type === 'pet') {
+                const pet=HD_PETS[g.petId],a=hdInit();
+                if(pet){a.pets.owned[g.petId]=true;hdPetProgress(g.petId);spawnFloatingText(hero.x,hero.y-35,`${pet.icon} ${pet.name}`,'#fbbf24',14);showToast(`${pet.icon} ${pet.name} pet koleksiyonuna eklendi!`,'#fbbf24');}
             } else {
                 player.lootCount++;
                 advanceQuestProgress('collect_loot', 1);
@@ -4799,12 +4825,14 @@ function renderGame() {
     // 5. YERDEKİ GANİMET IŞIK SÜTUNLARI
     groundDrops.forEach(g => {
         const grad = ctx.createLinearGradient(g.x, g.y, g.x, g.y - 38);
-        grad.addColorStop(0, g.type === 'gold' ? 'rgba(251, 191, 36, 0.9)' : 'rgba(192, 132, 252, 0.9)');
+        const petColor=g.type==='pet'?(HD_PETS?.[g.petId]?.color||'#fbbf24'):null;
+        grad.addColorStop(0, g.type === 'gold' ? 'rgba(251, 191, 36, 0.9)' : g.type==='pet' ? `${petColor}ee` : 'rgba(192, 132, 252, 0.9)');
         grad.addColorStop(1, 'transparent');
         ctx.fillStyle = grad;
         ctx.fillRect(g.x - 4, g.y - 38, 8, 38);
-        ctx.fillStyle = g.type === 'gold' ? '#fbbf24' : '#c084fc';
+        ctx.fillStyle = g.type === 'gold' ? '#fbbf24' : g.type==='pet' ? petColor : '#c084fc';
         ctx.beginPath(); ctx.arc(g.x, g.y, 5, 0, Math.PI * 2); ctx.fill();
+        if(g.type==='pet'){ctx.font='16px sans-serif';ctx.textAlign='center';ctx.fillText(HD_PETS?.[g.petId]?.icon||'🐾',g.x,g.y-10);}
     });
 
     // 6. Y-SORTING (DERİNLİK SIRALAMASI)
@@ -5335,10 +5363,10 @@ const hdUpdate=updateGame;updateGame=function(){if(hdBlocked()){hd.attack=false;
  hd.fx.forEach(p=>{p.life--;if(!p.ring){p.x+=p.vx||0;p.y+=p.vy||0;}});hd.fx=hd.fx.filter(p=>p.life>0).slice(-180);hd.ripples.forEach(p=>p.life--);hd.ripples=hd.ripples.filter(p=>p.life>0).slice(-24);particles.forEach(p=>{p.x+=p.vx;p.y+=p.vy;p.life--;});particles=particles.filter(p=>p.life>0).slice(-180);floatingTexts.forEach(p=>{p.y-=.85;p.life--;});floatingTexts=floatingTexts.filter(p=>p.life>0).slice(-50);if(hd.ticks%60===0){hdBoss();let m=document.getElementById('hd-mana');m.textContent='MP '+Math.floor(a.mana)+' / '+hdMaxMana();let fps=document.getElementById('hd-fps');fps.textContent=Math.round(hd.fps)+' FPS · '+(hd.detail===0?'Tasarruf':hd.detail===1?'Dengeli':'Yüksek');}if(hd.ticks%600===0){savePlayerState();syncAccountCharsToStorage();}};
 function hdBurst(x,y,color,n){for(let i=0;i<n;i++){let a=Math.random()*Math.PI*2,s=Math.random()*2.8;hd.fx.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-1,life:18+Math.random()*16,max:34,size:1+Math.random()*2.2,color});}}
 function hdGameKeys(e){if(/INPUT|SELECT|TEXTAREA/.test(e.target.tagName))return;let k=e.key.toLowerCase();if(k==='escape'){closeAllModals();hdResetInput();return;}if(hdBlocked())return;if(['w','a','s','d','arrowup','arrowdown','arrowleft','arrowright',' ','1','2','q','e','r','m','b','tab'].includes(k))e.preventDefault();hd.keys.add(k);if(e.repeat)return;if(k==='1')useSkill(1);if(k==='2')useSkill(2);if(k==='q')usePotion();if(k==='e')triggerDash();if(k==='r')interactWithNearestNpc();if(k==='m')openModal('modal-bigmap');if(k==='b')hdPanel();if(k==='tab'){let ts=[...monsters,...rifts].filter(m=>Math.hypot(m.x-hero.x,m.y-hero.y)<650);hd.target=ts[(ts.indexOf(hd.target)+1)%ts.length]||null;}}
-canvas.addEventListener('pointerdown',event=>{if(hdBlocked())return;const rect=canvas.getBoundingClientRect();const x=(event.clientX-rect.left)*hd.width/rect.width-hd.width/2+hero.x;const y=(event.clientY-rect.top)*hd.height/rect.height-hd.height/2+hero.y;const node=gatheringNodes.find(resource=>Math.hypot(resource.x-x,resource.y-y)<95);if(node){event.preventDefault();event.stopImmediatePropagation();hd.move=null;hdGatherNode(node);}},true);
+canvas.addEventListener('pointerdown',event=>{if(hdBlocked())return;const rect=canvas.getBoundingClientRect(),point=hdCinePointer(event,rect),x=point.x,y=point.y;const node=gatheringNodes.find(resource=>Math.hypot(resource.x-x,resource.y-y)<95);if(node){event.preventDefault();event.stopImmediatePropagation();hd.move=null;hdGatherNode(node);}},true);
 document.addEventListener('keydown',hdGameKeys);document.addEventListener('keyup',e=>hd.keys.delete(e.key.toLowerCase()));
 const hdHitBtn=document.querySelector('.attack-main');hdHitBtn.removeAttribute('onpointerdown');hdHitBtn.addEventListener('pointerdown',e=>{e.preventDefault();try{hdHitBtn.setPointerCapture(e.pointerId);}catch{}hd.attack=true;manualAttack();});['pointerup','pointercancel','lostpointercapture'].forEach(t=>hdHitBtn.addEventListener(t,()=>hd.attack=false));
-canvas.addEventListener('pointerdown',e=>{if(hdBlocked())return;let r=canvas.getBoundingClientRect(),x=(e.clientX-r.left)*hd.width/r.width-hd.width/2+hero.x,y=(e.clientY-r.top)*hd.height/r.height-hd.height/2+hero.y;if(isTownZone()){let n=VILLAGE_NPCS.find(n=>Math.hypot(n.x-x,n.y-y)<40);if(n){openNpcShopModal(n.id);return;}}let all=[...monsters,...rifts].filter(m=>Math.hypot(m.x-x,m.y-y)<45).sort((a,b)=>Math.hypot(a.x-x,a.y-y)-Math.hypot(b.x-x,b.y-y));if(all[0]){hd.target=all[0];hd.move=null;hdAim();}else hd.move={x,y};});
+canvas.addEventListener('pointerdown',e=>{if(hdBlocked())return;let r=canvas.getBoundingClientRect(),point=hdCinePointer(e,r),x=point.x,y=point.y;if(isTownZone()){let n=VILLAGE_NPCS.find(n=>Math.hypot(n.x-x,n.y-y)<40);if(n){openNpcShopModal(n.id);return;}}let all=[...monsters,...rifts].filter(m=>Math.hypot(m.x-x,m.y-y)<45).sort((a,b)=>Math.hypot(a.x-x,a.y-y)-Math.hypot(b.x-x,b.y-y));if(all[0]){hd.target=all[0];hd.move=null;hdAim();}else hd.move={x,y};});
 // Stable procedural materials. No external image dependencies.
 function hdNoise(n){let v=Math.sin(n*127.1+311.7)*43758.5453;return v-Math.floor(v);}
 function hdVisible(x,y,pad=140){return Math.abs(x-hero.x)<hd.width/2+pad&&Math.abs(y-hero.y)<hd.height/2+pad;}
@@ -5355,8 +5383,255 @@ function hdWater(t){let left=Math.floor((hero.x-hd.width/2-100)/30)*30,right=her
  if(hd.weather==='rain'&&hd.detail>0){for(let i=0;i<24;i++){let rx=left+hdNoise(i+33)*(right-left),ry=getRiverCenterY(rx)+(hdNoise(i+88)-.5)*75,phase=(t*1.3+hdNoise(i))%1;ctx.strokeStyle='rgba(195,220,216,'+(1-phase)*.2+')';ctx.lineWidth=.6;ctx.beginPath();ctx.ellipse(rx,ry,phase*9,phase*3,0,0,6.28);ctx.stroke();}}hd.ripples.forEach(p=>{ctx.strokeStyle=`rgba(210,235,216,${p.life/100})`;ctx.lineWidth=1;ctx.beginPath();ctx.ellipse(p.x,p.y,2+(60-p.life)*.65,1+(60-p.life)*.22,0,0,6.28);ctx.stroke();});ctx.restore();
  [-900,0,900].filter(x=>Math.abs(x-hero.x)<hd.width/2+100).forEach(x=>{let y=getRiverCenterY(x);hdShadow(x+20,y+20,62,28,2);ctx.fillStyle='#302d22';ctx.fillRect(x-46,y-69,92,138);for(let i=0;i<13;i++){let yy=y-65+i*10;let g=ctx.createLinearGradient(x-41,yy,x+40,yy+8);g.addColorStop(0,'#a18c64');g.addColorStop(1,'#5c5139');ctx.fillStyle=g;ctx.fillRect(x-41,yy,82,8);ctx.strokeStyle='#292a2280';ctx.beginPath();ctx.moveTo(x-36,yy+3);ctx.lineTo(x+32,yy+4);ctx.stroke();}ctx.fillStyle='#3b382b';for(let s of [-1,1]){ctx.fillRect(x+s*43-3,y-72,6,143);for(let j=-1;j<=1;j++){ctx.fillStyle='#aa9876';ctx.fillRect(x+s*43-4,y+j*62-13,8,16);ctx.fillStyle='#373a2b';}}});}
 function hdGround(t){let l=hero.x-hd.width/2-10,top=hero.y-hd.height/2-10;ctx.fillStyle=groundPatterns[player.zone]||'#28362a';ctx.fillRect(l,top,hd.width+20,hd.height+20);ctx.fillStyle=player.zone==='map4'?'#939e9970':'#7a6d4b60';ctx.fillRect(-48,top,96,hd.height+20);ctx.fillRect(l,-48,hd.width+20,96);ctx.beginPath();ctx.ellipse(0,0,235,188,0,0,6.28);ctx.fill();let step=32;for(let x=Math.floor(l/step)*step;x<l+hd.width+step;x+=step){for(let y=Math.floor(top/step)*step;y<top+hd.height+step;y+=step){let v=hdNoise(x*.12+y*.34);if(Math.abs(y-getRiverCenterY(x))<65)continue;let road=Math.abs(x)<45||Math.abs(y)<45||(x*x/(235*235)+y*y/(188*188)<1);if(road){ctx.fillStyle=`rgba(${100+Math.floor(v*45)},${96+Math.floor(v*35)},${75+Math.floor(v*32)},.48)`;ctx.beginPath();ctx.roundRect(x+2,y+2,27+v*2,25-v*4,3);ctx.fill();ctx.strokeStyle='#b7ac8133';ctx.beginPath();ctx.moveTo(x+4,y+2);ctx.lineTo(x+27,y+2);ctx.stroke();}else if(hd.detail>0){for(let k=0;k<4;k++){let xx=x+hdNoise(k+x+y)*30,yy=y+hdNoise(k*3-x+y)*30,sway=Math.sin(t*1.8+xx*.02+yy*.01)*3;let dist=Math.hypot(xx-hero.x,yy-hero.y);if(dist<22)sway+=(xx>hero.x?1:-1)*7;ctx.strokeStyle=k%2?'#8b9c6260':'#141e16a0';ctx.lineWidth=.8;ctx.beginPath();ctx.moveTo(xx,yy);ctx.quadraticCurveTo(xx+sway*.5,yy-4,xx+sway,yy-7-v*4);ctx.stroke();}}}}}
-function hdStone(r,t){ctx.save();ctx.translate(r.x,r.y);if(r.telegraphRadius>0){ctx.fillStyle='#bf405c33';ctx.strokeStyle='#f79789';ctx.lineWidth=2;ctx.beginPath();ctx.ellipse(0,9,r.telegraphRadius,r.telegraphRadius*.7,0,0,6.28);ctx.fill();ctx.stroke();}let s=1+r.pulse*.012;ctx.scale(s,s);let g=ctx.createLinearGradient(-23,-57,27,15);g.addColorStop(0,'#999194');g.addColorStop(.3,'#514e60');g.addColorStop(.7,'#222a34');g.addColorStop(1,'#10151f');ctx.fillStyle=g;ctx.beginPath();ctx.moveTo(-25,15);ctx.lineTo(-28,-22);ctx.lineTo(-8,-57);ctx.lineTo(8,-65);ctx.lineTo(30,-32);ctx.lineTo(26,10);ctx.lineTo(0,23);ctx.closePath();ctx.fill();ctx.strokeStyle='#a5a3ac66';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(-8,-57);ctx.lineTo(-2,-20);ctx.lineTo(26,10);ctx.moveTo(-2,-20);ctx.lineTo(-25,15);ctx.stroke();ctx.save();ctx.shadowBlur=hd.detail?14:0;ctx.shadowColor=r.tier===2?'#f58060':'#b692e8';ctx.strokeStyle=r.tier===2?'#f7ad7e':'#cab2fa';ctx.lineWidth=1.8;ctx.beginPath();ctx.moveTo(8,-56);ctx.lineTo(2,-36);ctx.lineTo(10,-21);ctx.lineTo(-3,-8);ctx.lineTo(4,14);ctx.moveTo(2,-36);ctx.lineTo(-14,-27);ctx.stroke();ctx.restore();ctx.font='10px Georgia';ctx.textAlign='center';ctx.fillStyle='#e7d8c2';ctx.fillText(r.name,0,-78);ctx.fillStyle='#16181b';ctx.fillRect(-24,-72,48,3);ctx.fillStyle='#bc8fcb';ctx.fillRect(-24,-72,48*r.hp/r.maxHp,3);ctx.restore();}
-function hdMob(m,t){ctx.save();ctx.translate(m.x,m.y);let boss=m.boss?1.7:1;ctx.scale(boss,boss);let stride=Math.sin(m.walkFrame*1.5)*4,breath=Math.sin(t*3+m.x)*.8;if(m.kind==='wolf'){ctx.scale(Math.cos(m.angle)<0?-1:1,1);let g=ctx.createLinearGradient(0,-12,0,14);g.addColorStop(0,'#afb4ac');g.addColorStop(.5,'#5d6a6a');g.addColorStop(1,'#29383b');ctx.strokeStyle='#303e3f';ctx.lineWidth=4;for(let i=0;i<4;i++){ctx.beginPath();ctx.moveTo(i%2?9:-9,2);ctx.lineTo((i%2?9:-9)+(i<2?stride:-stride),16);ctx.stroke();}ctx.fillStyle=g;ctx.beginPath();ctx.ellipse(0,0,18,10,0,0,6.28);ctx.fill();ctx.beginPath();ctx.ellipse(15,-6,8,9,-.4,0,6.28);ctx.fill();ctx.beginPath();ctx.moveTo(17,-5);ctx.lineTo(27,-1);ctx.lineTo(19,3);ctx.closePath();ctx.fill();ctx.beginPath();ctx.moveTo(11,-11);ctx.lineTo(10,-23);ctx.lineTo(18,-14);ctx.moveTo(-15,-2);ctx.lineTo(-29,-11);ctx.lineTo(-21,6);ctx.fill();ctx.fillStyle='#e3bc7f';ctx.fillRect(18,-8,2,2);ctx.strokeStyle='#ced0b455';ctx.lineWidth=.7;for(let i=0;i<12;i++){ctx.beginPath();ctx.moveTo(-12+i*2,-5);ctx.lineTo(-15+i*2,2);ctx.stroke();}}else{ctx.fillStyle='#282b29';ctx.fillRect(-10,5+stride,7,17);ctx.fillRect(3,5-stride,7,17);let g=ctx.createLinearGradient(-17,-28,18,16);g.addColorStop(0,m.boss?'#cab081':'#8c9880');g.addColorStop(.4,m.boss?'#786346':'#4c5d4b');g.addColorStop(1,'#222c29');ctx.fillStyle=g;ctx.beginPath();ctx.roundRect(-17,-23+breath,34,34,8);ctx.fill();ctx.fillStyle='#66684c';ctx.beginPath();ctx.ellipse(0,-30+breath,9,11,0,0,6.28);ctx.fill();ctx.fillStyle='#d7c9a5';ctx.beginPath();ctx.moveTo(-8,-26);ctx.lineTo(-8,-33);ctx.lineTo(-4,-26);ctx.moveTo(8,-26);ctx.lineTo(8,-33);ctx.lineTo(4,-26);ctx.fill();ctx.fillStyle='#e0bb68';ctx.fillRect(-5,-32,3,2);ctx.fillRect(2,-32,3,2);ctx.strokeStyle='#a5916a';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(-13,-17);ctx.lineTo(13,5);ctx.stroke();ctx.strokeStyle='#5d4832';ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(20,10);ctx.lineTo(24,-35);ctx.stroke();ctx.fillStyle='#8c9491';ctx.beginPath();ctx.moveTo(24,-35);ctx.lineTo(38,-39);ctx.lineTo(35,-22);ctx.lineTo(23,-24);ctx.closePath();ctx.fill();}ctx.restore();ctx.fillStyle='#121a19';ctx.fillRect(m.x-20,m.y-(m.boss?85:44),40,4);ctx.fillStyle=m.boss?'#e3bc6e':'#ba675c';ctx.fillRect(m.x-20,m.y-(m.boss?85:44),40*Math.max(0,m.hp/m.maxHp),4);if(m.boss||hd.target===m){ctx.font='10px Georgia';ctx.fillStyle='#edcf9d';ctx.textAlign='center';ctx.fillText(m.name,m.x,m.y-(m.boss?91:50));}}
+const hdMetin3DCache = new Map();
+
+function getMetinPalette(name, tier) {
+    const n = (name || '').toUpperCase();
+if (n.includes('KIZIL')) return { id: 'crimson', rock: [72, 34, 38], magma: [255, 75, 45], core: [255, 230, 140], hex: '#ef4444', glow: '#f97316' };    if (n.includes('LANET')) return { id: 'cursed',  rock: [48, 56, 46], magma: [168, 85, 247], core: [134, 239, 172], hex: '#a855f7', glow: '#4ade80' };
+    if (n.includes('GÖLGE')) return { id: 'shadow',  rock: [38, 44, 66], magma: [56, 189, 248], core: [224, 242, 254], hex: '#38bdf8', glow: '#818cf8' };
+    return tier === 2
+        ? { id: 'tier2', rock: [68, 42, 36], magma: [249, 115, 22], core: [254, 240, 138], hex: '#f97316', glow: '#fbbf24' }
+        : { id: 'fate',  rock: [58, 46, 68], magma: [192, 132, 252], core: [253, 230, 138], hex: '#c084fc', glow: '#f59e0b' };
+}
+
+function getBaked3DMetinSprite(palette) {
+    if (hdMetin3DCache.has(palette.id)) return hdMetin3DCache.get(palette.id);
+
+    const W = 180, H = 200;
+    const off = document.createElement('canvas');
+    off.width = W; off.height = H;
+    const g = off.getContext('2d');
+    const img = g.createImageData(W, H);
+    const data = img.data;
+
+    // 3D FBM Kaya Gürültü Fonksiyonu (Gerçekçi Pürüzlü Göktaşı Yüzeyi)
+    const hash = (x, y) => {
+        const s = Math.sin(x * 127.1 + y * 311.7) * 43758.5453;
+        return s - Math.floor(s);
+    };
+    const noise = (x, y) => {
+        const ix = Math.floor(x), iy = Math.floor(y);
+        const fx = x - ix, fy = y - iy;
+        const ux = fx * fx * (3 - 2 * fx), uy = fy * fy * (3 - 2 * fy);
+        const a = hash(ix, iy), b = hash(ix + 1, iy);
+        const c = hash(ix, iy + 1), d = hash(ix + 1, iy + 1);
+        return a + (b - a) * ux + (c - a) * uy + (a - b - c + d) * ux * uy;
+    };
+    const fbm = (x, y) => noise(x, y) * 0.5 + noise(x * 2.1, y * 2.1) * 0.25 + noise(x * 4.3, y * 4.3) * 0.15 + noise(x * 8.7, y * 8.7) * 0.1;
+
+    // Voronoi Kaya Çatlağı / Magma Damarı Hesabı
+    const crackNoise = (x, y) => {
+        const v1 = fbm(x * 0.055, y * 0.055);
+        const v2 = fbm(x * 0.055 + 9.2, y * 0.055 + 4.7);
+        return Math.abs(v1 - v2);
+    };
+
+    const cx = 90, baseY = 148, topY = 26;
+    const lx = -0.52, ly = -0.48, lz = 0.70; // 3D Güneş Işığı Yön Vektörü
+
+    // 1) Piksel Piksel 3D Göktaşı ve Krater Kayası Renderı
+    for (let py = 18; py < 182; py++) {
+        for (let px = 12; px < 168; px++) {
+            const idx = (py * W + px) * 4;
+
+            // A) Alt 3D Parçalı Krater Çemberi
+            const dxC = (px - cx) / 68;
+            const dyC = (py - 148) / 26;
+            const craterDist = Math.hypot(dxC, dyC);
+
+            // B) Dik Saplanmış Göktaşı Silüeti (Yumurta/Monolit Formu + Kaya Girintileri)
+            const hNorm = (baseY - py) / (baseY - topY); // 0 (taban) -> 1 (tepe)
+            if (hNorm >= -0.12 && hNorm <= 1.05) {
+                const profileW = 46 * Math.pow(Math.max(0, 1 - Math.pow(hNorm * 0.92, 1.45)), 0.62) * (1 - hNorm * 0.32);
+                const edgeRugged = (fbm(px * 0.07, py * 0.07) - 0.5) * 15;
+                const halfW = Math.max(4, profileW + edgeRugged);
+                const dx = px - (cx + Math.sin(hNorm * 3.8) * 3.5);
+
+                if (Math.abs(dx) <= halfW) {
+                    // 3D Yüzey Normali (nx, ny, nz) + Kaya Kabartması (Bump Mapping)
+                    const nxRaw = dx / halfW;
+                    const nzRaw = Math.sqrt(Math.max(0.08, 1 - nxRaw * nxRaw));
+                    const bumpX = (fbm((px + 2) * 0.14, py * 0.14) - fbm((px - 2) * 0.14, py * 0.14)) * 1.9;
+                    const bumpY = (fbm(px * 0.14, (py + 2) * 0.14) - fbm(px * 0.14, (py - 2) * 0.14)) * 1.9;
+
+                    let nx = nxRaw + bumpX;
+                    let ny = (hNorm - 0.35) * -0.45 + bumpY;
+                    let nz = nzRaw;
+                    const nLen = Math.hypot(nx, ny, nz) || 1;
+                    nx /= nLen; ny /= nLen; nz /= nLen;
+
+                    // Lambertian 3D Işık + Specular (Parlama) + Ambient Occlusion (Taban Kararması)
+                    const diff = Math.max(0.12, nx * lx + ny * ly + nz * lz);
+                    const spec = Math.pow(Math.max(0, nz * 0.8 - nx * 0.35), 14) * 0.45;
+                    const ao = Math.min(1, Math.max(0.28, (hNorm + 0.15) * 1.15));
+                    const facetGrain = 0.72 + fbm(px * 0.22, py * 0.22) * 0.55;
+
+                    let r = palette.rock[0] * diff * ao * facetGrain + spec * 180;
+                    let gr = palette.rock[1] * diff * ao * facetGrain + spec * 175;
+                    let b = palette.rock[2] * diff * ao * facetGrain + spec * 195;
+
+                    // Sağ Kenar Rim-Light (3D Kontur Yansıması)
+                    if (nxRaw > 0.72) {
+                        const rim = (nxRaw - 0.72) / 0.28;
+                        r += palette.magma[0] * rim * 0.35;
+                        gr += palette.magma[1] * rim * 0.35;
+                        b += palette.magma[2] * rim * 0.35;
+                    }
+
+                    // Metin2 Magma / Lanet Yarıkları (Taşın İçinden Sızan Kor Enerji)
+                    const crack = crackNoise(px, py);
+                    const centerVein = Math.abs(dx - Math.sin(py * 0.09) * 9) / halfW;
+                    const isCrack = crack < 0.042 || (centerVein < 0.16 && fbm(px * 0.12, py * 0.12) > 0.42);
+
+                    if (isCrack) {
+                        const intensity = crack < 0.042 ? (1 - crack / 0.042) : (1 - centerVein / 0.16);
+                        const coreMix = Math.pow(intensity, 2.2);
+                        r = palette.magma[0] * (1 - coreMix) + palette.core[0] * coreMix;
+                        gr = palette.magma[1] * (1 - coreMix) + palette.core[1] * coreMix;
+                        b = palette.magma[2] * (1 - coreMix) + palette.core[2] * coreMix;
+                    } else if (crack < 0.085) {
+                        // Yarığın kenarındaki kızgın kaya halesi
+                        const glowMix = (0.085 - crack) / 0.043 * 0.55;
+                        r = r * (1 - glowMix) + palette.magma[0] * glowMix;
+                        gr = gr * (1 - glowMix) + palette.magma[1] * glowMix;
+                        b = b * (1 - glowMix) + palette.magma[2] * glowMix;
+                    }
+
+                    data[idx] = Math.min(255, Math.max(0, r));
+                    data[idx + 1] = Math.min(255, Math.max(0, gr));
+                    data[idx + 2] = Math.min(255, Math.max(0, b));
+                    data[idx + 3] = 255;
+                    continue;
+                }
+            }
+
+            // C) Göktaşının Saplandığı 3D Parçalanmış Kaya Krateri
+            const craterNoise = fbm(px * 0.09, py * 0.12);
+            if (craterDist <= 1.05 + (craterNoise - 0.5) * 0.28 && py >= 122) {
+                if (craterDist < 0.58) {
+                    // Kraterin içindeki erimiş kor/lav çukuru
+                    const lavaGlow = (1 - craterDist / 0.58) * (0.6 + craterNoise * 0.5);
+                    data[idx] = Math.min(255, 22 + palette.magma[0] * lavaGlow);
+                    data[idx + 1] = Math.min(255, 18 + palette.magma[1] * lavaGlow);
+                    data[idx + 2] = Math.min(255, 26 + palette.magma[2] * lavaGlow);
+                    data[idx + 3] = 245;
+                } else {
+                    // Kraterin dışına kalkmış 3D kırık kaya parçaları
+                    const rockShade = (0.35 + craterNoise * 0.65) * (px < cx ? 1.15 : 0.72);
+                    data[idx] = Math.min(255, palette.rock[0] * rockShade);
+                    data[idx + 1] = Math.min(255, palette.rock[1] * rockShade);
+                    data[idx + 2] = Math.min(255, palette.rock[2] * rockShade);
+                    data[idx + 3] = Math.min(255, (1.15 - craterDist) * 650);
+                }
+            }
+        }
+    }
+
+    g.putImageData(img, 0, 0);
+    hdMetin3DCache.set(palette.id, off);
+    return off;
+}
+
+function hdStone(r, t) {
+    const pal = getMetinPalette(r.name, r.tier);
+    const sprite = getBaked3DMetinSprite(pal);
+
+    ctx.save();
+    ctx.translate(r.x, r.y);
+
+    // 1) Patlama Alanı Uyarı Çemberi (Telegraph)
+    if (r.telegraphRadius > 0) {
+        ctx.fillStyle = 'rgba(225, 29, 72, 0.22)';
+        ctx.strokeStyle = '#fb7185';
+        ctx.lineWidth = 2.2;
+        ctx.beginPath();
+        ctx.ellipse(0, 10, r.telegraphRadius, r.telegraphRadius * 0.65, 0, 0, Math.PI * 2);
+        ctx.fill(); ctx.stroke();
+    }
+
+    // 2) Taşın Arkasından Dönen 3D Kaya Parçaları (Derinlik Hissi İçin Önce Çizilir)
+    for (let i = 0; i < 4; i++) {
+        const ang = t * 1.85 + i * (Math.PI / 2);
+        if (Math.sin(ang) >= 0) continue; // Sadece arkada olanlar
+        const ox = Math.cos(ang) * 42;
+        const oy = Math.sin(ang) * 15 - 32 + Math.sin(t * 3 + i) * 4;
+        ctx.fillStyle = '#1e293b';
+        ctx.beginPath();
+        ctx.moveTo(ox - 6, oy + 2); ctx.lineTo(ox - 2, oy - 7); ctx.lineTo(ox + 6, oy - 2); ctx.lineTo(ox + 2, oy + 6);
+        ctx.closePath(); ctx.fill();
+    }
+
+    // 3) 3D Piksel-Işıklandırmalı Göktaşı ve Krater Modeli
+    const scale = 1 + (r.pulse || 0) * 0.016;
+    ctx.save();
+    ctx.scale(scale, scale);
+    ctx.drawImage(sprite, -90, -142);
+
+    // 4) Canlı Nefes Alan Magma / Büyü Nabzı (Screen Glow)
+    const pulseAlpha = 0.22 + Math.sin(t * 3.8 + r.x) * 0.14 + (r.pulse || 0) * 0.04;
+    ctx.globalCompositeOperation = 'screen';
+    const aura = ctx.createRadialGradient(0, -34, 4, 0, -28, 56);
+    aura.addColorStop(0, pal.hex);
+    aura.addColorStop(0.45, pal.glow + '66');
+    aura.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.globalAlpha = Math.min(0.85, pulseAlpha);
+    ctx.fillStyle = aura;
+    ctx.beginPath(); ctx.ellipse(0, -28, 52, 64, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+
+    // 5) Taşın Önünden Geçen 3D Kaya Parçaları ve Yükselen Kor Kıvılcımlar
+    for (let i = 0; i < 4; i++) {
+        const ang = t * 1.85 + i * (Math.PI / 2);
+        if (Math.sin(ang) < 0) continue; // Sadece önde olanlar
+        const ox = Math.cos(ang) * 42;
+        const oy = Math.sin(ang) * 15 - 32 + Math.sin(t * 3 + i) * 4;
+
+        // Sol Işıklı Yüzey + Sağ Gölgeli Yüzey + Kor Çizgisi
+        ctx.fillStyle = '#64748b';
+        ctx.beginPath();
+        ctx.moveTo(ox - 7, oy + 2); ctx.lineTo(ox, oy - 9); ctx.lineTo(ox + 2, oy + 7);
+        ctx.closePath(); ctx.fill();
+
+        ctx.fillStyle = '#1e293b';
+        ctx.beginPath();
+        ctx.moveTo(ox, oy - 9); ctx.lineTo(ox + 8, oy - 1); ctx.lineTo(ox + 2, oy + 7);
+        ctx.closePath(); ctx.fill();
+
+        ctx.strokeStyle = pal.hex;
+        ctx.lineWidth = 1.3;
+        ctx.beginPath(); ctx.moveTo(ox - 2, oy - 4); ctx.lineTo(ox + 3, oy + 3); ctx.stroke();
+    }
+
+    // Yükselen Kor / Büyü Kıvılcımları
+    for (let s = 0; s < 5; s++) {
+        const life = (t * 0.9 + s * 0.21) % 1;
+        const sx = Math.sin(t * 2.5 + s * 4) * (24 * (1 - life * 0.4));
+        const sy = 4 - life * 92;
+        ctx.fillStyle = s % 2 === 0 ? pal.hex : '#fef08a';
+        ctx.globalAlpha = (1 - life) * 0.85;
+        ctx.beginPath(); ctx.arc(sx, sy, 1.5 + (1 - life) * 1.8, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+
+    // 6) Metin Taşı İsmi ve 3D Çerçeveli Can Barı
+    ctx.font = 'bold 10.5px Georgia';
+    ctx.textAlign = 'center';
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = '#070a10';
+    ctx.strokeText(r.name, 0, -124);
+    ctx.fillStyle = '#fde68a';
+    ctx.fillText(r.name, 0, -124);
+
+    ctx.fillStyle = '#090d16';
+    ctx.fillRect(-30, -117, 60, 5);
+    ctx.fillStyle = pal.hex;
+    ctx.fillRect(-29, -116, 58 * Math.max(0, r.hp / r.maxHp), 3);
+    ctx.strokeStyle = 'rgba(255, 235, 180, 0.45)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(-30, -117, 60, 5);
+
+    ctx.restore();
+}function hdMob(m,t){ctx.save();ctx.translate(m.x,m.y);let boss=m.boss?1.7:1;ctx.scale(boss,boss);let stride=Math.sin(m.walkFrame*1.5)*4,breath=Math.sin(t*3+m.x)*.8;if(m.kind==='wolf'){ctx.scale(Math.cos(m.angle)<0?-1:1,1);let g=ctx.createLinearGradient(0,-12,0,14);g.addColorStop(0,'#afb4ac');g.addColorStop(.5,'#5d6a6a');g.addColorStop(1,'#29383b');ctx.strokeStyle='#303e3f';ctx.lineWidth=4;for(let i=0;i<4;i++){ctx.beginPath();ctx.moveTo(i%2?9:-9,2);ctx.lineTo((i%2?9:-9)+(i<2?stride:-stride),16);ctx.stroke();}ctx.fillStyle=g;ctx.beginPath();ctx.ellipse(0,0,18,10,0,0,6.28);ctx.fill();ctx.beginPath();ctx.ellipse(15,-6,8,9,-.4,0,6.28);ctx.fill();ctx.beginPath();ctx.moveTo(17,-5);ctx.lineTo(27,-1);ctx.lineTo(19,3);ctx.closePath();ctx.fill();ctx.beginPath();ctx.moveTo(11,-11);ctx.lineTo(10,-23);ctx.lineTo(18,-14);ctx.moveTo(-15,-2);ctx.lineTo(-29,-11);ctx.lineTo(-21,6);ctx.fill();ctx.fillStyle='#e3bc7f';ctx.fillRect(18,-8,2,2);ctx.strokeStyle='#ced0b455';ctx.lineWidth=.7;for(let i=0;i<12;i++){ctx.beginPath();ctx.moveTo(-12+i*2,-5);ctx.lineTo(-15+i*2,2);ctx.stroke();}}else{ctx.fillStyle='#282b29';ctx.fillRect(-10,5+stride,7,17);ctx.fillRect(3,5-stride,7,17);let g=ctx.createLinearGradient(-17,-28,18,16);g.addColorStop(0,m.boss?'#cab081':'#8c9880');g.addColorStop(.4,m.boss?'#786346':'#4c5d4b');g.addColorStop(1,'#222c29');ctx.fillStyle=g;ctx.beginPath();ctx.roundRect(-17,-23+breath,34,34,8);ctx.fill();ctx.fillStyle='#66684c';ctx.beginPath();ctx.ellipse(0,-30+breath,9,11,0,0,6.28);ctx.fill();ctx.fillStyle='#d7c9a5';ctx.beginPath();ctx.moveTo(-8,-26);ctx.lineTo(-8,-33);ctx.lineTo(-4,-26);ctx.moveTo(8,-26);ctx.lineTo(8,-33);ctx.lineTo(4,-26);ctx.fill();ctx.fillStyle='#e0bb68';ctx.fillRect(-5,-32,3,2);ctx.fillRect(2,-32,3,2);ctx.strokeStyle='#a5916a';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(-13,-17);ctx.lineTo(13,5);ctx.stroke();ctx.strokeStyle='#5d4832';ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(20,10);ctx.lineTo(24,-35);ctx.stroke();ctx.fillStyle='#8c9491';ctx.beginPath();ctx.moveTo(24,-35);ctx.lineTo(38,-39);ctx.lineTo(35,-22);ctx.lineTo(23,-24);ctx.closePath();ctx.fill();}ctx.restore();ctx.fillStyle='#121a19';ctx.fillRect(m.x-20,m.y-(m.boss?85:44),40,4);ctx.fillStyle=m.boss?'#e3bc6e':'#ba675c';ctx.fillRect(m.x-20,m.y-(m.boss?85:44),40*Math.max(0,m.hp/m.maxHp),4);if(m.boss||hd.target===m){ctx.font='10px Georgia';ctx.fillStyle='#edcf9d';ctx.textAlign='center';ctx.fillText(m.name,m.x,m.y-(m.boss?91:50));}}
  function hdHorse(t,renderX=hero.x,renderY=hero.y){let x=renderX,y=renderY,s=Math.sin(hero.walkFrame*.36)*6;ctx.save();ctx.translate(x,y);ctx.fillStyle='#382d25';for(let i=0;i<4;i++)ctx.fillRect(-17+i*10,2+(i%2?s:-s),4,22);let g=ctx.createLinearGradient(-25,-20,25,10);g.addColorStop(0,'#ab8b61');g.addColorStop(1,'#4c3e30');ctx.fillStyle=g;ctx.beginPath();ctx.ellipse(0,-2,29,15,0,0,6.28);ctx.fill();ctx.beginPath();ctx.ellipse(23,-16,9,19,-.35,0,6.28);ctx.fill();ctx.beginPath();ctx.ellipse(30,-30,12,6,.3,0,6.28);ctx.fill();ctx.fillStyle='#282723';ctx.beginPath();ctx.moveTo(19,-34);ctx.lineTo(20,-40);ctx.lineTo(24,-33);ctx.moveTo(-24,-8);ctx.quadraticCurveTo(-38,0,-32,15);ctx.lineTo(-27,7);ctx.fill();ctx.fillStyle='#652e29';ctx.fillRect(-12,-15,27,8);ctx.strokeStyle='#d4b46d';ctx.lineWidth=1;ctx.strokeRect(-12,-15,27,8);ctx.restore();}
 function hdAtmosphere(t){let w=hd.width,h=hd.height;ctx.save();let night=hd.light==='night',sunset=hd.light==='sunset';ctx.fillStyle=night?'rgba(10,21,42,.28)':sunset?'rgba(86,45,18,.055)':'rgba(174,198,193,.025)';ctx.fillRect(0,0,w,h);if(hd.detail>0){let fog=ctx.createLinearGradient(0,0,0,h);fog.addColorStop(0,night?'#9cbed114':'#d1dac71d');fog.addColorStop(.65,'transparent');ctx.fillStyle=fog;ctx.fillRect(0,0,w,h);if(sunset){ctx.globalCompositeOperation='screen';ctx.fillStyle='#f3d6a008';for(let i=0;i<4;i++){let xx=i*w/4+Math.sin(t*.1+i)*30;ctx.beginPath();ctx.moveTo(xx-70,0);ctx.lineTo(xx+15,0);ctx.lineTo(xx+w*.4,h);ctx.lineTo(xx+w*.65,h);ctx.closePath();ctx.fill();}ctx.globalCompositeOperation='source-over';}}
  let count=hd.detail===0?25:hd.detail===1?60:110;if(hd.weather==='rain'){ctx.strokeStyle='#c3dde448';ctx.lineWidth=.8;for(let i=0;i<count;i++){let x=(hdNoise(i)*w+t*85)%w,y=(hdNoise(i+700)*h+t*(300+hdNoise(i)*180))%h;ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x-4,y+13);ctx.stroke();}ctx.fillStyle='#23455512';ctx.fillRect(0,0,w,h);}else if(hd.weather==='snow'){for(let i=0;i<count;i++){let x=(hdNoise(i)*w+Math.sin(t*.4+i)*25+w)%w,y=(hdNoise(i+20)*h+t*(14+hdNoise(i)*20))%h;ctx.fillStyle='#e8edea99';ctx.beginPath();ctx.arc(x,y,.8+hdNoise(i+5)*1.5,0,6.28);ctx.fill();}}else if(hd.detail>0){for(let i=0;i<22;i++){let x=(hdNoise(i)*w+t*8)%w,y=(hdNoise(i+80)*h+Math.sin(t+i)*12+h)%h;ctx.fillStyle=night?'#e1e9a266':'#dec99d44';ctx.beginPath();ctx.arc(x,y,1,0,6.28);ctx.fill();}}
@@ -6124,6 +6399,12 @@ const HD_SEASON_TASKS=[
 function hdSeasonInfo(){return player.adventure?.season||hdSeasonTemplate();}
 function hdPetAccess(){return typeof hasVip==='function'?hasVip():!!player.isPremium;}
 function hdPetMultiplier(){const active=player.adventure?.pets?.active;if(!active||!hdPetAccess())return 1;return active==='stormDragon'?1.12:1.08;}
+function tryDropBossPet(mob){
+    if(!mob?.boss||Math.random()>=0.00001)return false;
+    const a=hdInit(),ids=Object.keys(HD_PETS),petId=ids[Math.floor(Math.random()*ids.length)],pet=HD_PETS[petId];
+    a.pets.owned[petId]=true;hdPetProgress(petId);groundDrops.push({x:mob.x,y:mob.y,type:'pet',petId,amount:1});
+    showToast(`🌟 İNANILMAZ! ${mob.name} içinden ${pet.icon} ${pet.name} düştü! Olasılık: %0,001`,'#fbbf24');savePlayerState();return true;
+}
 function hdPetProgress(id){const a=hdInit();a.pets.progress[id]=a.pets.progress[id]||{level:1,xp:0,bond:0};return a.pets.progress[id];}
 function hdPetGainXp(amount=1){
     if(!hdPetAccess())return;
@@ -6284,6 +6565,48 @@ hdRenderPanel=function(){
     root.insertAdjacentHTML('beforeend',`<div class="hd-card" style="display:block;border-color:${s.accent}55"><div style="display:flex;justify-content:space-between;align-items:center"><div><b>${s.icon} Uzun Sezon Görevleri</b><p>Sezon Seviyesi ${s.rank} · ${s.xp}/${s.rank*1000} XP</p></div><span style="color:${s.accent};font-weight:900">${HD_SEASON_TASKS.filter(task=>s.taskClaimed[task.id]).length}/${HD_SEASON_TASKS.length}</span></div><p class="hd-muted">Bu görev zinciri sezon boyunca kalır. Tümünü tamamlamak düzenli av, Metin, balıkçılık ve madencilik gerektirir.</p>${rows}</div>`);
 };
 
+const HD_BOSS_CATALOG=[
+    {id:'iron-titan',family:'titan',kind:'orc',name:'DEMİRTAÇ SAVAŞ LORDU',title:'Kırık Tahtın Varisi',color:'#d5a86e'},
+    {id:'frost-colossus',family:'ice',kind:'ice_golem',name:'AYAZ BUZ KOLOSU',title:'Donmuş Vadi Muhafızı',color:'#8be9ff'},
+    {id:'sand-serpent',family:'sand',kind:'sand_wyrm',name:'KUM DENİZİ YILANI',title:'Gömülü Krallığın Laneti',color:'#f5b86b'},
+    {id:'void-oracle',family:'void',kind:'desert_mage',name:'BOŞLUK KÂHİNİ',title:'Yitik Ruhların Efendisi',color:'#d8b4fe'},
+    {id:'thorn-queen',family:'forest',kind:'thorn_sprite',name:'DİKEN KRALİÇESİ',title:'Kızıl Ormanın Kalbi',color:'#86efac'},
+    {id:'storm-drake',family:'dragon',kind:'frost_orc',name:'FIRTINA EJDERİ',title:'Göğün Kırık Dişi',color:'#c084fc'},
+    {id:'blood-champion',family:'titan',kind:'orc',name:'KAN ARENASI ŞAMPİYONU',title:'Savaş Meydanının Sonu',color:'#fb7185'},
+    {id:'star-devourer',family:'void',kind:'orc_mystic',name:'YILDIZ YUTUCU',title:'Karanlığın Son Eşiği',color:'#f0abfc'}
+];
+const __hdBossBeforeExpanded=hdBoss;
+hdBoss=function(){
+    const a=hdInit(),z=WORLD_ZONES.find(zone=>zone.id===player.zone)||{mult:1,minLv:1};
+    if(isTownZone()||monsters.some(m=>m.boss)||Date.now()<(a.bossNext||0))return;
+    const index=Number(a.bossIndex)||0,b=HD_BOSS_CATALOG[index%HD_BOSS_CATALOG.length],spawn=[{x:520,y:-180},{x:-520,y:180},{x:420,y:360},{x:-360,y:-330}][index%4];
+    const tier=1+(index%4),hp=Math.round(6800*z.mult*(1+tier*.22));
+    monsters.push({boss:true,bossId:b.id,bossFamily:b.family,bossTitle:b.title,bossColor:b.color,bossTier:tier,bossScale:2.45+tier*.18,kind:b.kind,name:b.name,level:z.minLv+14+tier,x:spawn.x,y:spawn.y,spawnX:spawn.x,spawnY:spawn.y,hp,maxHp:hp,atk:52*z.mult*(1+tier*.16),speed:.92,angle:0,walkFrame:0,hitCd:30,aggressive:true,alerted:true,hitFlash:0});
+    a.bossIndex=(index+1)%HD_BOSS_CATALOG.length;showToast(`⚔️ ${b.name} ortaya çıktı: ${b.title}`,'#fbbf24');
+};
+function hdDrawDetailedBoss(m,t){
+    const c=m.bossColor||'#fbbf24',s=m.bossScale||2.8,pulse=Math.sin(t*3.5+m.x*.01)*3,flash=m.hitFlash>0;
+    ctx.save();ctx.translate(m.x,m.y);ctx.globalCompositeOperation='screen';ctx.globalAlpha=.3;ctx.strokeStyle=c;ctx.shadowColor=c;ctx.shadowBlur=hd.detail>0?24:8;ctx.lineWidth=2;
+    for(let i=0;i<3;i++){ctx.beginPath();ctx.ellipse(0,8,54+i*13+pulse,22+i*7,0,0,6.28);ctx.stroke();}ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';ctx.shadowBlur=0;ctx.scale(s,s);
+    if(m.bossFamily==='titan'){
+        ctx.fillStyle='#262b35';ctx.fillRect(-14,4,10,28);ctx.fillRect(5,4,10,28);let g=ctx.createLinearGradient(-25,-45,25,18);g.addColorStop(0,flash?'#fff1c1':'#d7a66b');g.addColorStop(.42,'#7c4b3f');g.addColorStop(1,'#231e2b');ctx.fillStyle=g;ctx.beginPath();ctx.roundRect(-26,-38,52,60,10);ctx.fill();ctx.fillStyle='#9f3b45';ctx.beginPath();ctx.moveTo(-31,-30);ctx.lineTo(-52,-8);ctx.lineTo(-35,6);ctx.moveTo(31,-30);ctx.lineTo(52,-8);ctx.lineTo(35,6);ctx.fill();ctx.fillStyle='#d6b27b';ctx.beginPath();ctx.ellipse(0,-55,17,20,0,0,6.28);ctx.fill();ctx.fillStyle='#5b2838';ctx.beginPath();ctx.moveTo(-13,-59);ctx.lineTo(-28,-79);ctx.lineTo(-7,-68);ctx.moveTo(13,-59);ctx.lineTo(28,-79);ctx.lineTo(7,-68);ctx.fill();ctx.fillStyle='#ffe08a';ctx.fillRect(-9,-57,5,4);ctx.fillRect(4,-57,5,4);ctx.strokeStyle='#c99d63';ctx.lineWidth=7;ctx.beginPath();ctx.moveTo(28,1);ctx.lineTo(49,-62);ctx.stroke();ctx.fillStyle='#d8e5ef';ctx.beginPath();ctx.moveTo(48,-66);ctx.lineTo(70,-71);ctx.lineTo(62,-45);ctx.lineTo(45,-51);ctx.closePath();ctx.fill();
+    }else if(m.bossFamily==='ice'){
+        ctx.fillStyle='#294b68';ctx.fillRect(-13,2,10,30);ctx.fillRect(4,2,10,30);let g=ctx.createLinearGradient(-35,-68,35,20);g.addColorStop(0,flash?'#fff':'#b9f5ff');g.addColorStop(.45,'#5eb7d1');g.addColorStop(1,'#23415b');ctx.fillStyle=g;ctx.beginPath();ctx.moveTo(-34,17);ctx.lineTo(-30,-45);ctx.lineTo(-14,-75);ctx.lineTo(0,-55);ctx.lineTo(16,-78);ctx.lineTo(33,-42);ctx.lineTo(35,17);ctx.closePath();ctx.fill();ctx.strokeStyle='#e0fbff';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(-22,-53);ctx.lineTo(-5,4);ctx.lineTo(8,-52);ctx.moveTo(13,-62);ctx.lineTo(19,7);ctx.stroke();ctx.fillStyle='#dffaff';ctx.beginPath();ctx.moveTo(-17,-73);ctx.lineTo(-29,-98);ctx.lineTo(-7,-84);ctx.moveTo(17,-73);ctx.lineTo(29,-98);ctx.lineTo(7,-84);ctx.fill();ctx.fillStyle='#b9f5ff';ctx.beginPath();ctx.arc(-10,-49,4,0,6.28);ctx.arc(10,-49,4,0,6.28);ctx.fill();
+    }else if(m.bossFamily==='sand'){
+        ctx.strokeStyle='#9a572f';ctx.lineWidth=18;ctx.beginPath();ctx.moveTo(-28,22);ctx.quadraticCurveTo(-58,0,-34,-25);ctx.quadraticCurveTo(-8,-48,14,-26);ctx.stroke();ctx.fillStyle='#d08b4c';ctx.beginPath();ctx.ellipse(0,-42,27,18,0,0,6.28);ctx.fill();ctx.fillStyle='#7a392c';ctx.beginPath();ctx.moveTo(-24,-44);ctx.lineTo(-42,-70);ctx.lineTo(-16,-58);ctx.moveTo(24,-44);ctx.lineTo(42,-70);ctx.lineTo(16,-58);ctx.fill();ctx.fillStyle='#fef08a';ctx.beginPath();ctx.arc(-10,-45,4,0,6.28);ctx.arc(10,-45,4,0,6.28);ctx.fill();ctx.strokeStyle='#e9b866';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(-17,-33);ctx.lineTo(-34,-18);ctx.moveTo(17,-33);ctx.lineTo(34,-18);ctx.stroke();
+    }else if(m.bossFamily==='dragon'){
+        ctx.fillStyle='#59258a';ctx.beginPath();ctx.ellipse(0,-6,30,20,0,0,6.28);ctx.fill();ctx.fillStyle='#c084fc';ctx.beginPath();ctx.moveTo(-20,-13);ctx.lineTo(-82,-58);ctx.lineTo(-53,-4);ctx.lineTo(-20,2);ctx.moveTo(20,-13);ctx.lineTo(82,-58);ctx.lineTo(53,-4);ctx.lineTo(20,2);ctx.fill();ctx.fillStyle='#a855f7';ctx.beginPath();ctx.ellipse(31,-28,18,25,-.3,0,6.28);ctx.fill();ctx.fillStyle='#f5d0fe';ctx.beginPath();ctx.moveTo(20,-42);ctx.lineTo(17,-70);ctx.lineTo(30,-51);ctx.moveTo(40,-42);ctx.lineTo(49,-70);ctx.lineTo(50,-42);ctx.fill();ctx.fillStyle='#fff7ae';ctx.beginPath();ctx.arc(37,-32,4,0,6.28);ctx.fill();ctx.strokeStyle='#fca5a5';ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(-30,5);ctx.quadraticCurveTo(-67,31,-88,7);ctx.stroke();ctx.fillStyle='#fb7185';ctx.beginPath();ctx.arc(-92,4,5+Math.sin(t*7),0,6.28);ctx.fill();
+    }else if(m.bossFamily==='forest'){
+        ctx.fillStyle='#244c38';ctx.beginPath();ctx.ellipse(0,-8,30,34,0,0,6.28);ctx.fill();ctx.strokeStyle='#86efac';ctx.lineWidth=5;ctx.beginPath();ctx.moveTo(-18,-35);ctx.quadraticCurveTo(-55,-80,-68,-52);ctx.moveTo(18,-35);ctx.quadraticCurveTo(55,-80,68,-52);ctx.stroke();ctx.fillStyle='#fb7185';ctx.beginPath();ctx.arc(-10,-18,4,0,6.28);ctx.arc(10,-18,4,0,6.28);ctx.fill();ctx.strokeStyle='#4ade80';ctx.lineWidth=3;for(let i=-2;i<=2;i++){ctx.beginPath();ctx.moveTo(i*9,14);ctx.lineTo(i*17,42);ctx.stroke();}
+    }else{
+        ctx.fillStyle='#31245d';ctx.beginPath();ctx.moveTo(-30,25);ctx.lineTo(-24,-52);ctx.lineTo(0,-76);ctx.lineTo(24,-52);ctx.lineTo(30,25);ctx.closePath();ctx.fill();ctx.strokeStyle='#d8b4fe';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(-14,-42);ctx.lineTo(-58,-76);ctx.moveTo(14,-42);ctx.lineTo(58,-76);ctx.stroke();ctx.fillStyle='#f0abfc';for(let i=0;i<3;i++){const a=t+i*2.1;ctx.beginPath();ctx.arc(Math.cos(a)*48,Math.sin(a)*20-52,6,0,6.28);ctx.fill();}ctx.fillStyle='#fff7d6';ctx.beginPath();ctx.arc(-9,-39,4,0,6.28);ctx.arc(9,-39,4,0,6.28);ctx.fill();ctx.strokeStyle='#c084fc';ctx.lineWidth=5;ctx.beginPath();ctx.moveTo(-20,18);ctx.lineTo(-44,46);ctx.moveTo(20,18);ctx.lineTo(44,46);ctx.stroke();
+    }
+    ctx.restore();
+    const barW=170+ m.bossTier*12,barY=m.y-150-m.bossTier*5;ctx.fillStyle='#0b1018dd';ctx.fillRect(m.x-barW/2,barY,barW,10);ctx.fillStyle=c;ctx.shadowColor=c;ctx.shadowBlur=10;ctx.fillRect(m.x-barW/2+2,barY+2,(barW-4)*Math.max(0,m.hp/m.maxHp),6);ctx.shadowBlur=0;ctx.strokeStyle='#f8e6b0';ctx.lineWidth=1;ctx.strokeRect(m.x-barW/2,barY,barW,10);ctx.font='bold 12px Georgia';ctx.textAlign='center';ctx.fillStyle='#fff1c1';ctx.fillText(`${m.name} · ${m.bossTitle}`,m.x,barY-8);
+}
+const __hdMobBeforeBossDetail=hdMob;
+hdMob=function(m,t){__hdMobBeforeBossDetail(m,t);if(m.boss)hdDrawDetailedBoss(m,t);};
+
 // Fill the diamond corners once so the isometric camera never exposes blank canvas.
 const hdTerrainAccentCache=new Map();
 function hdTerrainAccents(zone){
@@ -6340,6 +6663,13 @@ hdAtmosphere=function(t){
     ctx.restore();
 };
 
+const __hdAtmosphereBeforeBossFlash=hdAtmosphere;
+hdAtmosphere=function(t){
+    __hdAtmosphereBeforeBossFlash(t);
+    if(!hd.bossHitFlash)return;
+    ctx.save();ctx.setTransform(hd.dpr,0,0,hd.dpr,0,0);ctx.globalAlpha=Math.min(.22,hd.bossHitFlash*.022);ctx.fillStyle='#ef4444';ctx.fillRect(0,0,hd.width,hd.height);ctx.restore();
+};
+
 // İzometrik zeminde nesnelerin tabanı projekte olur; gövdeleri ekrana dik kalır.
 // Böylece ağaçlar, moblar ve karakterler yana yatmış görünmez.
 function hdScreenContext(){ctx.setTransform(hd.dpr,0,0,hd.dpr,0,0);}
@@ -6352,9 +6682,762 @@ function hdDrawProjectedRemote(p,t){const point=hdIsoProject(p.x,p.y);ctx.save()
 function hdDrawProjectedTown(t,townName='SANCAK PAZARI'){ctx.save();hdScreenContext();const smith=hdIsoProject(-135,-45),market=hdIsoProject(135,-45);drawPagodaBuilding(ctx,smith.x,smith.y,'DEMİRCİ OCAĞI','','#654f42','#302c29',true);drawPagodaBuilding(ctx,market.x,market.y,townName,'','#485d5a','#283d3b',false);ctx.restore();}
 function hdDrawProjectedHero(t){const mounted=player.adventure?.mounted,point=hdIsoProject(hero.x,hero.y);ctx.save();hdScreenContext();if(mounted)hdHorse(t,point.x,point.y-18);drawHumanoidCharacter(ctx,point.x,point.y-(mounted?18:0),hero.angle,hero.walkFrame,player.heroClass,player.weaponLevel,player.username,player.hp,getEffectiveMaxHp(),hero.slashAnim,true,t,!hero.isMoving&&hero.idleFrames>45);ctx.restore();}
 
+// İlk görsel sürüm: normal kamera + eski materyal/pet katmanları.
+const hdLegacyFirstGraphicsRender=renderGame;
+
+// HANEDAN • Gerçek 2.5D sahne katmanı. Mekanikler korunur; dünya artık tek bir düz 2D çizim değildir.
+function hdRealMetrics(){
+    const mobile=hdMobileBudget(),short=Math.min(hd.width,hd.height),fit=mobile?Math.max(.76,Math.min(1.08,short/680)):Math.max(.86,Math.min(1.12,short/900));
+    return {zoom:fit,sx:.66*fit,sy:.38*fit,centerY:hd.height*.52};
+}
+function hdRealProject(wx,wy,z=0){return hdRealProjectPoint(wx,wy,z);}
+function hdRealProjectPoint(wx,wy,z=0){
+    const m=hdRealMetrics(),dx=(wx-hero.x)*m.zoom,dy=(wy-hero.y)*m.zoom;
+    return {x:hd.width/2+(dx-dy)*m.sx+(hd.realShakeX||0),y:m.centerY+(dx+dy)*m.sy-z*m.zoom+(hd.realShakeY||0)};
+}
+function hdCinePointer(event,rect){
+    const m=hdRealMetrics(),px=(event.clientX-rect.left)*hd.width/rect.width-hd.width/2-(hd.realShakeX||0),py=(event.clientY-rect.top)*hd.height/rect.height-m.centerY-(hd.realShakeY||0);
+    const dx=(px/m.sx+py/m.sy)/2/m.zoom,dy=(py/m.sy-px/m.sx)/2/m.zoom;return {x:hero.x+dx,y:hero.y+dy};
+}
+function hdRealShadow(x,y,w,h,alpha=.34){const p=hdRealProjectPoint(x,y);ctx.save();ctx.globalAlpha=alpha;ctx.fillStyle='#02050a';ctx.beginPath();ctx.ellipse(p.x,p.y+3,w,h,0,0,6.28);ctx.fill();ctx.restore();}
+function hdRealPoly(points,fill,stroke=null){ctx.beginPath();points.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.closePath();if(fill){ctx.fillStyle=fill;ctx.fill();}if(stroke){ctx.strokeStyle=stroke;ctx.stroke();}}
+function hdRealBand(center,width,fill,stroke=null){const upper=[],lower=[];for(let x=-3000;x<=3000;x+=100){const y=typeof center==='function'?center(x):center;upper.push(hdRealProjectPoint(x,y-width/2));lower.push(hdRealProjectPoint(x,y+width/2));}hdRealPoly(upper.concat(lower.reverse()),fill,stroke);}
+function hdRealTree(p,t){const s=(p.scale||1)*(p.type==='tree'?1:1),q=hdRealProjectPoint(p.x,p.y);hdRealShadow(p.x,p.y,30*s,9*s,.38);ctx.save();ctx.translate(q.x,q.y);ctx.scale(s,s);const trunk=ctx.createLinearGradient(-7,0,8,0);trunk.addColorStop(0,'#241b18');trunk.addColorStop(.5,'#9a6648');trunk.addColorStop(1,'#33231e');ctx.fillStyle=trunk;ctx.beginPath();ctx.moveTo(-7,4);ctx.lineTo(-5,-49);ctx.lineTo(5,-49);ctx.lineTo(8,4);ctx.closePath();ctx.fill();ctx.strokeStyle='#d49b6b88';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(0,-42);ctx.lineTo(-18,-65);ctx.moveTo(2,-36);ctx.lineTo(20,-57);ctx.stroke();const zone=player.zone==='map4'?'#8ed7df':player.zone==='map3'?'#bd8a4b':player.zone==='pk'?'#8d5065':'#4f9367';for(let i=0;i<4;i++){const ox=(i%2?18:-18)+(i-1.5)*2,oy=-68-(i%2)*13;ctx.fillStyle=i%2?zone:'#397651';ctx.beginPath();ctx.moveTo(ox-34,oy+18);ctx.lineTo(ox-20,oy-18);ctx.lineTo(ox+3,oy-39);ctx.lineTo(ox+34,oy-17);ctx.lineTo(ox+23,oy+20);ctx.closePath();ctx.fill();}ctx.globalAlpha=.22;ctx.fillStyle='#d7ffd1';ctx.beginPath();ctx.ellipse(-14,-80,17,9,-.35,0,6.28);ctx.ellipse(18,-74,15,8,.3,0,6.28);ctx.fill();ctx.restore();}
+function hdRealRock(p){const q=hdRealProjectPoint(p.x,p.y),s=p.scale||1;hdRealShadow(p.x,p.y,25*s,8*s,.32);ctx.save();ctx.translate(q.x,q.y);ctx.scale(s,s);const g=ctx.createLinearGradient(-20,-40,22,12);g.addColorStop(0,'#d5d8cf');g.addColorStop(.35,'#7c8988');g.addColorStop(1,'#2a3538');ctx.fillStyle=g;hdRealPoly([{x:-25,y:9},{x:-19,y:-25},{x:-4,y:-42},{x:18,y:-31},{x:28,y:5},{x:8,y:15}],g,'#dae6d788');ctx.strokeStyle='#f0f6e877';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(-17,-24);ctx.lineTo(2,-17);ctx.lineTo(18,-31);ctx.moveTo(2,-17);ctx.lineTo(8,10);ctx.stroke();ctx.restore();}
+function hdRealStone(r,t){const q=hdRealProjectPoint(r.x,r.y),s=1+r.pulse*.012;hdRealShadow(r.x,r.y,30,10,.38);ctx.save();ctx.translate(q.x,q.y);ctx.scale(s,s);const glow=r.tier===2?'#f58060':'#b692e8';ctx.globalCompositeOperation='screen';ctx.shadowColor=glow;ctx.shadowBlur=hd.detail>0?22:8;ctx.fillStyle='#4a4968';hdRealPoly([{x:-29,y:10},{x:-25,y:-28},{x:-7,y:-65},{x:8,y:-55},{x:30,y:-22},{x:26,y:12},{x:0,y:25}],ctx.fillStyle,'#e9d8ff88');ctx.strokeStyle=glow;ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(8,-54);ctx.lineTo(0,-28);ctx.lineTo(11,-8);ctx.lineTo(-3,12);ctx.moveTo(-2,-28);ctx.lineTo(-20,-14);ctx.stroke();ctx.restore();ctx.save();ctx.font='11px Georgia';ctx.textAlign='center';ctx.fillStyle='#e7d8c2';ctx.fillText(r.name,q.x,q.y-78);ctx.restore();}
+function hdRealMob(m,t){const q=hdRealProjectPoint(m.x,m.y),scale=m.boss?1:1; if(m.boss){hdDrawDetailedBoss({...m,x:q.x,y:q.y},t);return;}hdRealShadow(m.x,m.y,22,7,.38);ctx.save();ctx.translate(q.x,q.y);ctx.scale(scale,scale);const wolf=['wolf','ice_wolf','jackal'].includes(m.kind),col=m.kind.includes('ice')?'#8ed7df':m.kind.includes('desert')?'#cf9b5a':m.kind.includes('orc')?'#9d8a62':'#738a74';if(wolf){ctx.save();ctx.scale(Math.cos(m.angle)<0?-1:1,1);const g=ctx.createLinearGradient(0,-24,0,12);g.addColorStop(0,'#e6e8de');g.addColorStop(.5,col);g.addColorStop(1,'#27343a');ctx.fillStyle=g;ctx.beginPath();ctx.ellipse(0,-4,22,12,0,0,6.28);ctx.fill();ctx.beginPath();ctx.ellipse(18,-12,10,10,-.2,0,6.28);ctx.fill();ctx.fillStyle='#e8d5a4';ctx.beginPath();ctx.moveTo(21,-12);ctx.lineTo(31,-8);ctx.lineTo(22,-4);ctx.fill();ctx.strokeStyle='#27343a';ctx.lineWidth=4;for(let i=0;i<4;i++){ctx.beginPath();ctx.moveTo(-12+i*8,3);ctx.lineTo(-14+i*8,20+Math.sin(t*5+i)*3);ctx.stroke();}ctx.strokeStyle='#dce5e2';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(-18,-5);ctx.quadraticCurveTo(-38,-22,-32,-33);ctx.stroke();ctx.restore();}else{const g=ctx.createLinearGradient(-19,-50,20,12);g.addColorStop(0,m.kind.includes('frost')?'#d8f8ff':'#b6a47b');g.addColorStop(.45,col);g.addColorStop(1,'#1e2931');ctx.fillStyle=g;ctx.beginPath();ctx.roundRect(-19,-42,38,50,10);ctx.fill();ctx.fillStyle='#dccaa1';ctx.beginPath();ctx.ellipse(0,-53,12,14,0,0,6.28);ctx.fill();ctx.fillStyle='#1f2937';ctx.fillRect(-5,-55,3,3);ctx.fillRect(3,-55,3,3);ctx.fillStyle='#c88463';ctx.beginPath();ctx.moveTo(-12,-38);ctx.lineTo(-27,-26);ctx.lineTo(-12,-18);ctx.moveTo(12,-38);ctx.lineTo(27,-26);ctx.lineTo(12,-18);ctx.fill();ctx.strokeStyle='#a7b5bd';ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(17,-14);ctx.lineTo(32,-57);ctx.stroke();ctx.fillStyle='#d8e5ef';ctx.beginPath();ctx.moveTo(31,-61);ctx.lineTo(46,-65);ctx.lineTo(41,-48);ctx.lineTo(29,-51);ctx.closePath();ctx.fill();}ctx.restore();const barW=m.boss?130:42,barY=q.y-(m.boss?140:65);ctx.fillStyle='#0c131bcc';ctx.fillRect(q.x-barW/2,barY,barW,5);ctx.fillStyle=m.boss?'#e3bc6e':'#ba675c';ctx.fillRect(q.x-barW/2,barY,barW*Math.max(0,m.hp/m.maxHp),5);if(m.boss||hd.target===m){ctx.font='bold 10px Georgia';ctx.textAlign='center';ctx.fillStyle='#f0d59e';ctx.fillText(m.name,q.x,barY-6);}}
+function hdRealHero(t){const q=hdRealProjectPoint(hero.x,hero.y),cls=player.heroClass||'blade',colors={blade:['#c8965e','#60402f'],sura:['#b99df4','#3b245b'],ninja:['#8ee7cf','#1c514c'],shaman:['#9bdcff','#244e70']},c=colors[cls]||colors.blade;hdRealShadow(hero.x,hero.y,25,8,.42);ctx.save();ctx.translate(q.x,q.y);const bob=hero.isMoving?Math.sin(hero.walkFrame*.7)*2:0;ctx.translate(0,bob);ctx.fillStyle=c[1];ctx.beginPath();ctx.moveTo(-13,7);ctx.lineTo(-19,-37);ctx.lineTo(0,-47);ctx.lineTo(19,-37);ctx.lineTo(13,7);ctx.closePath();ctx.fill();ctx.fillStyle=c[0];ctx.beginPath();ctx.ellipse(0,-55,12,14,0,0,6.28);ctx.fill();ctx.fillStyle='#26333a';ctx.fillRect(-6,-57,3,3);ctx.fillRect(3,-57,3,3);ctx.strokeStyle='#d9b87c';ctx.lineWidth=5;ctx.beginPath();ctx.moveTo(8,-27);ctx.lineTo(34,-61);ctx.stroke();ctx.strokeStyle='#e9d8ad';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(32,-66);ctx.lineTo(49,-70);ctx.stroke();if(hero.slashAnim>0){ctx.globalCompositeOperation='screen';ctx.strokeStyle=cls==='ninja'?'#9ffbea':'#ffe4a1';ctx.shadowColor=ctx.strokeStyle;ctx.shadowBlur=18;ctx.lineWidth=3;ctx.beginPath();ctx.arc(25,-24,48,-1.1,.55);ctx.stroke();ctx.restore();}else ctx.restore();ctx.save();ctx.font='bold 12px Georgia';ctx.textAlign='center';ctx.fillStyle='#f6dfa7';ctx.strokeStyle='#101820aa';ctx.lineWidth=3;ctx.strokeText(`${player.username} · Lv.${player.level}`,q.x,q.y-83);ctx.fillText(`${player.username} · Lv.${player.level}`,q.x,q.y-83);ctx.fillStyle='#111827';ctx.fillRect(q.x-30,q.y-76,60,5);ctx.fillStyle='#47d6c0';ctx.fillRect(q.x-30,q.y-76,60*Math.max(0,player.hp/getEffectiveMaxHp()),5);ctx.restore();}
+function hdRealNpc(n,t){const q=hdRealProjectPoint(n.x,n.y);hdRealShadow(n.x,n.y,22,7,.32);ctx.save();ctx.translate(q.x,q.y);ctx.fillStyle=n.id==='smith'?'#704332':'#335d63';ctx.beginPath();ctx.moveTo(-15,8);ctx.lineTo(-17,-38);ctx.lineTo(0,-48);ctx.lineTo(17,-38);ctx.lineTo(15,8);ctx.closePath();ctx.fill();ctx.fillStyle='#e0bd85';ctx.beginPath();ctx.arc(0,-57,12,0,6.28);ctx.fill();ctx.fillStyle='#202a31';ctx.fillRect(-5,-59,3,3);ctx.fillRect(3,-59,3,3);if(n.id==='smith'){ctx.strokeStyle='#ffc66d';ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(12,-22);ctx.lineTo(36,-56);ctx.stroke();}ctx.restore();ctx.save();ctx.font='bold 10px Georgia';ctx.textAlign='center';ctx.fillStyle='#f3d7a2';ctx.fillText(n.name,q.x,q.y-74);ctx.restore();}
+function hdRealPortal(portal,t){const q=hdRealProjectPoint(portal.x,portal.y);ctx.save();ctx.translate(q.x,q.y);ctx.globalCompositeOperation='screen';ctx.shadowColor='#7de3ec';ctx.shadowBlur=18;ctx.strokeStyle='#7de3ec';ctx.lineWidth=3;ctx.beginPath();ctx.ellipse(0,-25,30,42,0,0,6.28);ctx.stroke();ctx.fillStyle='#7de3ec44';ctx.fill();ctx.restore();ctx.save();ctx.font='bold 10px Georgia';ctx.textAlign='center';ctx.fillStyle='#d5fbff';ctx.fillText(portal.label,q.x,q.y-76);ctx.restore();}
+function hdRealPet(t){const a=player.adventure,id=a?.pets?.active,pet=HD_PETS[id],actor=a?.pets?.actor;if(!hdPetAccess()||!pet||!actor)return;const q=hdRealProjectPoint(actor.x,actor.y),p=a.pets.progress?.[id]||{level:1};hdRealShadow(actor.x,actor.y,20,6,.28);ctx.save();ctx.translate(q.x,q.y+Math.sin(actor.phase||0)*3);ctx.globalCompositeOperation='screen';ctx.shadowColor=pet.color;ctx.shadowBlur=18;ctx.fillStyle=pet.color;ctx.beginPath();ctx.ellipse(0,10,22,7,0,0,6.28);ctx.fill();ctx.globalCompositeOperation='source-over';ctx.shadowBlur=0;ctx.fillStyle=pet.color;ctx.beginPath();ctx.ellipse(0,-4,15,11,0,0,6.28);ctx.fill();if(pet.kind==='fox'){ctx.beginPath();ctx.moveTo(-11,-10);ctx.lineTo(-16,-29);ctx.lineTo(-3,-16);ctx.moveTo(11,-10);ctx.lineTo(16,-29);ctx.lineTo(3,-16);ctx.fill();ctx.strokeStyle='#fff0c2';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(-10,4);ctx.quadraticCurveTo(-32,-6,-24,-23);ctx.stroke();}else if(pet.kind==='wolf'){ctx.beginPath();ctx.moveTo(-11,-10);ctx.lineTo(-16,-29);ctx.lineTo(-3,-17);ctx.moveTo(11,-10);ctx.lineTo(16,-29);ctx.lineTo(3,-17);ctx.fill();ctx.strokeStyle='#dbeafe';ctx.lineWidth=2;ctx.beginPath();ctx.arc(0,-4,25,-2.5,-.6);ctx.stroke();}else if(pet.kind==='sprite'){ctx.globalAlpha=.7;ctx.beginPath();ctx.ellipse(-17,-10,19,9,.2,0,6.28);ctx.ellipse(17,-10,19,9,-.2,0,6.28);ctx.fill();ctx.globalAlpha=1;ctx.fillStyle='#fef08a';ctx.beginPath();ctx.moveTo(0,-31);ctx.lineTo(6,-23);ctx.lineTo(0,-19);ctx.lineTo(-6,-23);ctx.closePath();ctx.fill();}else{ctx.beginPath();ctx.moveTo(-12,-8);ctx.lineTo(-29,-24);ctx.lineTo(-10,-17);ctx.moveTo(12,-8);ctx.lineTo(29,-24);ctx.lineTo(10,-17);ctx.fill();ctx.strokeStyle='#fb7185';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(13,2);ctx.quadraticCurveTo(31,16,39,3);ctx.stroke();}ctx.restore();ctx.save();ctx.font='bold 10px sans-serif';ctx.textAlign='center';ctx.fillStyle='#fff6d1';ctx.fillText(`${pet.name} · Lv.${p.level}`,q.x,q.y-35);ctx.restore();}
+function hdRealGatherNode(n,t){const q=hdRealProjectPoint(n.x,n.y),ready=n.respawnAt>Date.now();hdRealShadow(n.x,n.y,24,7,.22);ctx.save();ctx.translate(q.x,q.y);ctx.globalAlpha=ready?.28:.92;ctx.strokeStyle=n.type==='fishing'?'#7de3ec':'#f0d28d';ctx.fillStyle=n.type==='fishing'?'#1e839455':'#c99b5c55';ctx.lineWidth=2;ctx.beginPath();ctx.ellipse(0,0,32,12,0,0,6.28);ctx.fill();ctx.stroke();ctx.globalCompositeOperation='screen';ctx.shadowColor=ctx.strokeStyle;ctx.shadowBlur=12;ctx.beginPath();ctx.arc(0,-12,4+Math.sin(t*3+n.seed)*2,0,6.28);ctx.stroke();ctx.restore();}
+function hdRealHouse(x,y,t){const q=hdRealProjectPoint(x,y),s=1.15;hdRealShadow(x,y,70,16,.32);ctx.save();ctx.translate(q.x,q.y);ctx.scale(s,s);ctx.fillStyle='#e5c87b';ctx.fillRect(-55,-75,110,78);ctx.fillStyle='#8c431f';hdRealPoly([{x:-70,y:-70},{x:0,y:-116},{x:70,y:-70},{x:0,y:-28}],ctx.fillStyle,'#e9a75f');ctx.fillStyle='#2d313b';ctx.fillRect(-18,-41,36,44);ctx.fillStyle='#77d7e6';ctx.fillRect(-47,-55,20,17);ctx.fillRect(27,-55,20,17);ctx.fillStyle='#f7d675';ctx.fillRect(-5,-110,10,28);ctx.fillStyle='#db4651';ctx.fillRect(-12,-135,24,22);ctx.restore();}
+function hdRealGround(t){const pal=hdCinePalettes[player.zone]||hdCinePalettes.valley;const corners=[[-3200,-2500],[3200,-2500],[3200,2500],[-3200,2500]].map(v=>hdRealProjectPoint(v[0],v[1]));hdRealPoly(corners,pal.ground,'#6a806f55');ctx.globalAlpha=.23;for(let i=0;i<8;i++){const p=hdRealProjectPoint(-2700+i*720,220+Math.sin(i)*650);ctx.fillStyle=i%2?'#b9cf9a':'#172c23';ctx.beginPath();ctx.ellipse(p.x,p.y,270,100,0,0,6.28);ctx.fill();}ctx.globalAlpha=1;hdRealBand(0,132,player.zone==='map4'?'#405b69':'#555044','#c9b889aa');hdRealBand(0,112,player.zone==='map4'?'#4f7889':'#6d644e');for(let x=-2800;x<2800;x+=150){const a=hdRealProjectPoint(x,-4),b=hdRealProjectPoint(x+65,-4);ctx.strokeStyle='#efd77a99';ctx.lineWidth=5;ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();}hdRealBand(x=>getRiverCenterY(x),112,'#143c4c','#8cc8c888');for(let x=-2800;x<2800;x+=180){const y=getRiverCenterY(x),a=hdRealProjectPoint(x,y),b=hdRealProjectPoint(x+55,y+Math.sin(t*2+x*.03)*3);ctx.strokeStyle='#a9e5df55';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();}if(player.zone==='village')hdRealHouse(0,-210,t);}
+function hdRealFx(t){ctx.save();ctx.globalCompositeOperation='screen';[...particles,...hd.fx].forEach(f=>{const p=hdRealProjectPoint(f.x,f.y,f.ring?4:18);ctx.globalAlpha=Math.min(1,f.life/(f.max||25));ctx.fillStyle=f.color;ctx.strokeStyle=f.color;if(f.ring){const r=(1-f.life/f.max)*(f.radius||40);ctx.lineWidth=2;ctx.beginPath();ctx.ellipse(p.x,p.y,r,r*.42,0,0,6.28);ctx.stroke();}else{ctx.beginPath();ctx.arc(p.x,p.y,Math.max(.6,f.size||2),0,6.28);ctx.fill();}});ctx.restore();floatingTexts.forEach(f=>{const p=hdRealProjectPoint(f.x,f.y,24);ctx.save();ctx.font=`bold ${f.size||12}px sans-serif`;ctx.textAlign='center';ctx.lineWidth=3;ctx.strokeStyle='#111827cc';ctx.strokeText(f.text,p.x,p.y);ctx.fillStyle=f.color;ctx.fillText(f.text,p.x,p.y);ctx.restore();});}
+function hdRealAtmosphere(t){const pal=hdCinePalettes[player.zone]||hdCinePalettes.valley;ctx.save();ctx.setTransform(hd.dpr,0,0,hd.dpr,0,0);const fog=ctx.createLinearGradient(0,0,0,hd.height);fog.addColorStop(0,'rgba(180,220,205,.12)');fog.addColorStop(.55,'rgba(0,0,0,0)');fog.addColorStop(1,'rgba(2,8,12,.24)');ctx.fillStyle=fog;ctx.fillRect(0,0,hd.width,hd.height);if(hd.detail>0){ctx.globalCompositeOperation='screen';for(let i=0;i<(hdMobileBudget()?18:32);i++){const x=(hdNoise(i*3.1)*hd.width+t*8)%hd.width,y=(hdNoise(i*7.2)*hd.height+t*12)%hd.height;ctx.globalAlpha=.08+hdNoise(i+3)*.14;ctx.fillStyle=pal.light;ctx.beginPath();ctx.arc(x,y,1+hdNoise(i+4)*2,0,6.28);ctx.fill();}}const v=ctx.createRadialGradient(hd.width/2,hd.height*.46,Math.min(hd.width,hd.height)*.2,hd.width/2,hd.height*.5,Math.max(hd.width,hd.height)*.75);v.addColorStop(0,'rgba(0,0,0,0)');v.addColorStop(1,'rgba(1,7,10,.30)');ctx.globalAlpha=1;ctx.globalCompositeOperation='multiply';ctx.fillStyle=v;ctx.fillRect(0,0,hd.width,hd.height);ctx.restore();}
+function hdRenderReal25D(){if(!document.getElementById('screen-game')?.classList.contains('active'))return;const t=performance.now()/1000;hd.realShakeX=(Math.random()-.5)*screenShake*.7;hd.realShakeY=(Math.random()-.5)*screenShake*.45;ctx.setTransform(hd.dpr,0,0,hd.dpr,0,0);ctx.clearRect(0,0,hd.width,hd.height);const pal=hdCinePalettes[player.zone]||hdCinePalettes.valley;const sky=ctx.createLinearGradient(0,0,0,hd.height);sky.addColorStop(0,pal.deep);sky.addColorStop(.52,'#172e29');sky.addColorStop(1,'#081514');ctx.fillStyle=sky;ctx.fillRect(0,0,hd.width,hd.height);const light=ctx.createRadialGradient(hd.width*.55,hd.height*.32,20,hd.width*.55,hd.height*.32,Math.max(hd.width,hd.height)*.75);light.addColorStop(0,pal.light);light.addColorStop(1,'rgba(0,0,0,0)');ctx.globalCompositeOperation='screen';ctx.fillStyle=light;ctx.fillRect(0,0,hd.width,hd.height);ctx.globalCompositeOperation='source-over';hdRealGround(t);gatheringNodes.filter(n=>hdVisible(n.x,n.y,260)).forEach(n=>hdRealGatherNode(n,t));const objects=[];envProps.filter(p=>hdVisible(p.x,p.y,180)).forEach(p=>objects.push({d:p.x+p.y,draw:()=>p.type==='tree'?hdRealTree(p,t):hdRealRock(p,t)}));monsters.filter(m=>hdVisible(m.x,m.y,220)).forEach(m=>objects.push({d:m.x+m.y,draw:()=>hdRealMob(m,t)}));rifts.filter(r=>hdVisible(r.x,r.y,220)).forEach(r=>objects.push({d:r.x+r.y,draw:()=>hdRealStone(r,t)}));if(player.zone==='pk')Object.values(remotePlayers).forEach(p=>objects.push({d:p.x+p.y,draw:()=>{const q=hdRealProjectPoint(p.x,p.y);ctx.save();ctx.translate(q.x,q.y);ctx.fillStyle='#7dd3fc';ctx.beginPath();ctx.arc(0,-40,10,0,6.28);ctx.fill();ctx.fillStyle='#334155';ctx.fillRect(-12,-30,24,34);ctx.restore();}}));objects.push({d:hero.x+hero.y,draw:()=>hdRealHero(t)});objects.sort((a,b)=>a.d-b.d).forEach(o=>o.draw());groundDrops.filter(g=>hdVisible(g.x,g.y,180)).forEach(g=>{const p=hdRealProjectPoint(g.x,g.y,0),pet=g.type==='pet'?HD_PETS?.[g.petId]:null,c=g.type==='gold'?'#fbbf24':pet?.color||'#c084fc';ctx.save();ctx.globalCompositeOperation='screen';ctx.shadowColor=c;ctx.shadowBlur=18;ctx.fillStyle=c;ctx.fillRect(p.x-3,p.y-34,6,34);ctx.beginPath();ctx.arc(p.x,p.y,6,0,6.28);ctx.fill();if(pet){ctx.font='17px sans-serif';ctx.textAlign='center';ctx.fillText(pet.icon,p.x,p.y-12);}ctx.restore();});if(hd.move){const p=hdRealProjectPoint(hd.move.x,hd.move.y);ctx.strokeStyle='#d7c69caa';ctx.lineWidth=2;ctx.beginPath();ctx.ellipse(p.x,p.y,15,6,0,0,6.28);ctx.stroke();}if(hd.target&&hd.target.hp>0){const p=hdRealProjectPoint(hd.target.x,hd.target.y);ctx.strokeStyle='#f7cc7b';ctx.lineWidth=2;ctx.beginPath();ctx.ellipse(p.x,p.y+6,hd.target.boss?70:30,hd.target.boss?25:10,0,0,6.28);ctx.stroke();}hdRealPet(t);hdRealFx(t);hdRealAtmosphere(t);if(hd.bossHitFlash){ctx.save();ctx.setTransform(hd.dpr,0,0,hd.dpr,0,0);ctx.globalAlpha=Math.min(.2,hd.bossHitFlash*.02);ctx.fillStyle='#ef4444';ctx.fillRect(0,0,hd.width,hd.height);ctx.restore();}renderMinimap();const boss=monsters.find(m=>m.boss);if(boss){miniCtx.strokeStyle='#ffd285';miniCtx.lineWidth=1.5;miniCtx.beginPath();miniCtx.arc((boss.x+WORLD_HALF)/(WORLD_HALF*2)*82,(boss.y+WORLD_HALF)/(WORLD_HALF*2)*82,4,0,6.28);miniCtx.stroke();}}
+renderGame=hdRenderReal25D;
+
+function hdRealWeatherOverlay(t){
+    ctx.save();ctx.setTransform(hd.dpr,0,0,hd.dpr,0,0);ctx.globalCompositeOperation='screen';
+    if(hd.weather==='rain'){ctx.strokeStyle='rgba(190,225,235,.25)';ctx.lineWidth=.8;for(let i=0;i<(hdMobileBudget()?24:48);i++){const x=(hdNoise(i*3.4)*hd.width+t*95)%hd.width,y=(hdNoise(i*9.2)*hd.height+t*(170+hdNoise(i)*130))%hd.height;ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x-4,y+16);ctx.stroke();}}
+    else if(hd.weather==='snow'){ctx.fillStyle='rgba(235,248,255,.65)';for(let i=0;i<(hdMobileBudget()?18:34);i++){const x=(hdNoise(i*4.1)*hd.width+t*12)%hd.width,y=(hdNoise(i*8.7)*hd.height+t*(18+hdNoise(i)*24))%hd.height;ctx.beginPath();ctx.arc(x,y,1+hdNoise(i+2),0,6.28);ctx.fill();}}
+    ctx.restore();
+}
+const __hdRenderReal25DSocial=hdRenderReal25D;
+hdRenderReal25D=function(){
+    __hdRenderReal25DSocial();
+    if(!document.getElementById('screen-game')?.classList.contains('active'))return;
+    const t=performance.now()/1000;hdRealWeatherOverlay(t);ctx.save();ctx.setTransform(hd.dpr,0,0,hd.dpr,0,0);
+    if(isTownZone())VILLAGE_NPCS.forEach(n=>hdRealNpc(n,t));
+    getPortals().filter(p=>hdVisible(p.x,p.y,260)).forEach(p=>hdRealPortal(p,t));
+    const near=isTownZone()?VILLAGE_NPCS.find(n=>Math.hypot(n.x-hero.x,n.y-hero.y)<105):null,prompt=document.getElementById('npc-floating-btn');if(prompt){prompt.style.display=near?'flex':'none';if(near)document.getElementById('npc-floating-text').textContent=near.name+' · Konuş [R]';}
+    ctx.restore();
+};
+// İlk halin normal kameraya dönmesi: 2.5D renderer artık yalnızca yedek kod olarak kalır.
+hdCinePointer=function(event,rect){
+    const px=(event.clientX-rect.left)*hd.width/rect.width;
+    const py=(event.clientY-rect.top)*hd.height/rect.height;
+    return {x:px-hd.width/2+hero.x,y:py-hd.height/2+hero.y};
+};
+renderGame=hdLegacyFirstGraphicsRender;
+
 setLanguage(currentLang);
 updateVipButtonsUI();
 requestAnimationFrame(gameLoop);
+// ============================================================================
+// HANEDAN 2.5D ULTRA-REALISTIC GRAPHICS & PERSPECTIVE ENGINE OVERRIDE
+// ============================================================================
+(function initTrue25DGraphicsEngine() {
+    const TILT_Y = 0.68; // 2.5D Zemin Perspektif Oranı (Yatay/Dikey derinlik)
+
+    // 2.5D Dünya -> Ekran ve Ekran -> Dünya Koordinat Dönüşümleri
+    window.hdIsoMetrics = function() {
+        return { sx: 1.0, sy: TILT_Y };
+    };
+
+    window.hdIsoProject = function(wx, wy, wz = 0) {
+        const dx = wx - hero.x;
+        const dy = (wy - hero.y) * TILT_Y;
+        return {
+            x: hd.width / 2 + dx,
+            y: hd.height / 2 + dy - wz
+        };
+    };
+
+    window.hdCinePointer = function(event, rect) {
+        const sx = (event.clientX - rect.left) * (hd.width / rect.width);
+        const sy = (event.clientY - rect.top) * (hd.height / rect.height);
+        return {
+            x: hero.x + (sx - hd.width / 2),
+            y: hero.y + (sy - hd.height / 2) / TILT_Y
+        };
+    };
+
+    window.hdVisible = function(x, y, pad = 220) {
+        return Math.abs(x - hero.x) < hd.width / 2 + pad &&
+               Math.abs((y - hero.y) * TILT_Y) < hd.height / 2 + pad;
+    };
+
+    // 1. GERÇEKÇİ 2.5D YÖNLÜ YER GÖLGESİ + AMBIENT OCCLUSION (KONTAK GÖLGESİ)
+    window.hdShadow = function(x, y, rx, ry, stretch = 1.35) {
+        const p = hdIsoProject(x, y, 0);
+        ctx.save();
+        // Kontak gölgesi (nesnenin tam altı)
+        const ao = ctx.createRadialGradient(p.x, p.y, 1, p.x, p.y, rx * 0.85);
+        ao.addColorStop(0, 'rgba(2, 5, 9, 0.62)');
+        ao.addColorStop(0.6, 'rgba(2, 5, 9, 0.28)');
+        ao.addColorStop(1, 'rgba(2, 5, 9, 0)');
+        ctx.fillStyle = ao;
+        ctx.beginPath();
+        ctx.ellipse(p.x, p.y, rx * 0.85, ry * TILT_Y * 0.75, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Güneş açısına göre uzayan 2.5D düşen gölge
+        const sunShiftX = hd.light === 'sunset' ? 18 : (hd.light === 'night' ? -10 : 12);
+        const sunShiftY = -ry * TILT_Y * 0.45;
+        const drop = ctx.createRadialGradient(p.x + sunShiftX * 0.4, p.y + sunShiftY * 0.4, 2, p.x + sunShiftX, p.y + sunShiftY, rx * stretch);
+        drop.addColorStop(0, 'rgba(4, 8, 14, 0.38)');
+        drop.addColorStop(0.65, 'rgba(4, 8, 14, 0.16)');
+        drop.addColorStop(1, 'rgba(4, 8, 14, 0)');
+        ctx.fillStyle = drop;
+        ctx.beginPath();
+        ctx.ellipse(p.x + sunShiftX, p.y + sunShiftY, rx * stretch, ry * TILT_Y * 0.8, -0.28, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+    };
+
+    // 2. 2.5D KABARTMALI ZEMİN, 3D TAŞ DÖŞEME YOLLAR VE TOPOGRAFİK DETAYLAR
+    window.hdGround = function(t) {
+        const palette = hdCinePalettes[player.zone] || hdCinePalettes.valley;
+        const viewW = hd.width + 320;
+        const viewH = (hd.height / TILT_Y) + 360;
+        const left = hero.x - viewW / 2;
+        const top = hero.y - viewH / 2;
+
+        ctx.save();
+        // Perspektif zemin dönüşümü
+        ctx.translate(hd.width / 2, hd.height / 2);
+        ctx.scale(1, TILT_Y);
+        ctx.translate(-hero.x, -hero.y);
+
+        // Ana biyom dokusu
+        ctx.fillStyle = groundPatterns[player.zone] || palette.ground;
+        ctx.fillRect(left, top, viewW, viewH);
+
+        // Yumuşak topografik tepe/çukur ışık katmanları
+        if (hd.detail > 0) {
+            for (let i = 0; i < 5; i++) {
+                const hx = Math.floor(hero.x / 900) * 900 + (i - 2) * 680;
+                const hy = Math.floor(hero.y / 900) * 900 + ((i * 3) % 5 - 2) * 580;
+                const hillGrad = ctx.createRadialGradient(hx - 60, hy - 60, 20, hx, hy, 540);
+                hillGrad.addColorStop(0, palette.light);
+                hillGrad.addColorStop(0.6, 'rgba(0,0,0,0)');
+                hillGrad.addColorStop(1, 'rgba(0,0,0,0.18)');
+                ctx.fillStyle = hillGrad;
+                ctx.beginPath();
+                ctx.ellipse(hx, hy, 540, 420, i * 0.5, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        // Köy Meydanı 3 Boyutlu Mermer/Bazalt Çemberi
+        const plazaGrad = ctx.createRadialGradient(-40, -40, 15, 0, 0, 275);
+        plazaGrad.addColorStop(0, player.zone === 'pk' ? '#4a1d24' : '#575044');
+        plazaGrad.addColorStop(0.75, player.zone === 'pk' ? '#2c1117' : '#3a352d');
+        plazaGrad.addColorStop(1, 'rgba(15, 20, 24, 0.9)');
+        ctx.fillStyle = plazaGrad;
+        ctx.beginPath();
+        ctx.ellipse(0, 0, 275, 225, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Meydan Rünik Bordür Halkaları
+        ctx.strokeStyle = 'rgba(245, 190, 95, 0.42)';
+        ctx.lineWidth = 5;
+        ctx.stroke();
+        ctx.strokeStyle = 'rgba(255, 240, 190, 0.2)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.ellipse(0, 0, 255, 208, 0, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // 3D Derzli Taş Yollar (Kuzey-Güney ve Doğu-Batı Kervan Yolu)
+        const roadColor = player.zone === 'map4' ? 'rgba(92, 114, 130, 0.78)' : 'rgba(84, 74, 58, 0.82)';
+        ctx.fillStyle = roadColor;
+        ctx.fillRect(-56, top, 112, viewH);
+        ctx.fillRect(left, -56, viewW, 112);
+
+        // Yol Kenarı 3D Kaldırım Bordür Taşları ve Arnavut Kaldırımı Derzleri
+        const step = 36;
+        const startX = Math.floor(left / step) * step;
+        const startY = Math.floor(top / step) * step;
+        for (let x = startX; x < left + viewW + step; x += step) {
+            for (let y = startY; y < top + viewH + step; y += step) {
+                if (Math.abs(y - getRiverCenterY(x)) < 68) continue;
+                const v = hdNoise(x * 0.13 + y * 0.29);
+                const onRoad = Math.abs(x) < 54 || Math.abs(y) < 54 || ((x * x) / (265 * 265) + (y * y) / (215 * 215) < 1);
+                if (onRoad) {
+                    const shade = 82 + Math.floor(v * 38);
+                    ctx.fillStyle = `rgba(${shade + 12}, ${shade + 6}, ${shade - 8}, 0.52)`;
+                    ctx.beginPath();
+                    ctx.roundRect(x + 2, y + 2, 31, 29, 4);
+                    ctx.fill();
+                    // Üst parlama kenarı (3D Bevel)
+                    ctx.strokeStyle = 'rgba(255, 245, 215, 0.22)';
+                    ctx.lineWidth = 1;
+                    ctx.beginPath();
+                    ctx.moveTo(x + 4, y + 3);
+                    ctx.lineTo(x + 30, y + 3);
+                    ctx.stroke();
+                } else if (hd.detail > 0 && v > 0.35) {
+                    // 2.5D Rüzgarda Eğilen Çimen Kümeleri
+                    const sway = Math.sin(t * 2.2 + x * 0.02 + y * 0.02) * 4;
+                    const dHero = Math.hypot(x - hero.x, y - hero.y);
+                    const push = dHero < 42 ? (x > hero.x ? 9 : -9) : 0;
+                    ctx.strokeStyle = player.zone === 'pk' ? 'rgba(190, 45, 70, 0.55)' : (player.zone === 'map4' ? 'rgba(185, 230, 250, 0.5)' : 'rgba(65, 130, 68, 0.58)');
+                    ctx.lineWidth = 1.3;
+                    ctx.beginPath();
+                    ctx.moveTo(x, y);
+                    ctx.quadraticCurveTo(x + (sway + push) * 0.5, y - 6, x + sway + push, y - 12 - v * 5);
+                    ctx.moveTo(x + 5, y + 2);
+                    ctx.quadraticCurveTo(x + 5 + (sway + push) * 0.6, y - 5, x + 7 + sway + push, y - 10 - v * 4);
+                    ctx.stroke();
+                }
+            }
+        }
+        ctx.restore();
+    };
+
+    // 3. GERÇEKÇİ 2.5D NEHİR YATAĞI, KIYI ŞEVİ VE 3D KÖPRÜLER
+    window.hdWater = function(t) {
+        const viewW = hd.width + 260;
+        const left = Math.floor((hero.x - viewW / 2) / 24) * 24;
+        const right = hero.x + viewW / 2;
+
+        ctx.save();
+        ctx.translate(hd.width / 2, hd.height / 2);
+        ctx.scale(1, TILT_Y);
+        ctx.translate(-hero.x, -hero.y);
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+
+        const traceRiver = (yOffset, width, color) => {
+            ctx.beginPath();
+            for (let x = left; x <= right; x += 24) {
+                const y = getRiverCenterY(x) + yOffset;
+                if (x === left) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            }
+            ctx.lineWidth = width;
+            ctx.strokeStyle = color;
+            ctx.stroke();
+        };
+
+        // 3D Kıyı Toprak/Kaya Kesiti (Üst kıyı gölgesi derinlik hissi verir)
+        traceRiver(0, 142, '#1a1915');
+        traceRiver(-6, 130, '#3a3428');
+        traceRiver(4, 122, player.zone === 'pk' ? '#3b0a14' : '#092230');
+        traceRiver(0, 104, player.zone === 'pk' ? '#6e1423' : '#0e4158');
+        traceRiver(0, 78, player.zone === 'pk' ? '#9e1c32' : '#16607c');
+
+        // Su Üzeri Kostik Işık Ağları ve Köpükler
+        for (let x = left; x < right; x += 32) {
+            const waveX = x + Math.sin(t * 1.6 + x * 0.03) * 10;
+            const cy = getRiverCenterY(waveX);
+            ctx.strokeStyle = player.zone === 'pk' ? 'rgba(255, 190, 170, 0.32)' : 'rgba(195, 242, 255, 0.34)';
+            ctx.lineWidth = 1.8;
+            ctx.beginPath();
+            ctx.moveTo(waveX - 14, cy - 16 + Math.sin(t * 2 + x) * 6);
+            ctx.quadraticCurveTo(waveX, cy - 22, waveX + 16, cy - 14 + Math.cos(t * 2 + x) * 6);
+            ctx.stroke();
+        }
+
+        // 3 Boyutlu Kemerli Ahşap/Taş Nehir Köprüleri
+        [-1200, -900, 0, 900, 1200].forEach(bx => {
+            if (Math.abs(bx - hero.x) > hd.width / 2 + 160) return;
+            const by = getRiverCenterY(bx);
+            // Köprü Suya Düşen Gölge
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.55)';
+            ctx.fillRect(bx - 54, by - 74, 112, 152);
+
+            // Suya İnen Taş Ayaklar
+            ctx.fillStyle = '#33393e';
+            ctx.fillRect(bx - 48, by - 68, 12, 140);
+            ctx.fillRect(bx + 36, by - 68, 12, 140);
+
+            // Ahşap Köprü Döşemesi
+            for (let i = 0; i < 14; i++) {
+                const py = by - 66 + i * 10;
+                const archLift = Math.sin((i / 13) * Math.PI) * 4;
+                const plankGrad = ctx.createLinearGradient(bx - 44, py, bx + 44, py);
+                plankGrad.addColorStop(0, '#5c4028');
+                plankGrad.addColorStop(0.5, '#8c6642');
+                plankGrad.addColorStop(1, '#49321f');
+                ctx.fillStyle = plankGrad;
+                ctx.fillRect(bx - 44, py - archLift, 88, 8);
+            }
+
+            // Köprü Korkuluk Babaları
+            ctx.fillStyle = '#c8a86b';
+            [-44, 38].forEach(rx => {
+                ctx.fillRect(bx + rx, by - 70, 6, 140);
+            });
+        });
+
+        ctx.restore();
+    };
+
+    // 4. 2.5D DİKEY YÜKSELEN AĞAÇLAR VE KAYALAR
+    window.hdTree = function(p, t) {
+        const pos = hdIsoProject(p.x, p.y, 0);
+        const s = p.scale || 1;
+        const sway = Math.sin(t * 1.7 + p.seed) * 3.2;
+
+        ctx.save();
+        ctx.translate(pos.x, pos.y);
+        ctx.scale(s, s);
+
+        // 3D Silindirik Gövde ve Kökler
+        const trunk = ctx.createLinearGradient(-10, 0, 10, 0);
+        trunk.addColorStop(0, '#1e1610');
+        trunk.addColorStop(0.45, '#6e553b');
+        trunk.addColorStop(1, '#261c14');
+        ctx.fillStyle = trunk;
+        ctx.beginPath();
+        ctx.moveTo(-11, 6);
+        ctx.quadraticCurveTo(-6, -24, -4 + sway * 0.4, -68);
+        ctx.lineTo(5 + sway * 0.4, -68);
+        ctx.quadraticCurveTo(7, -24, 12, 6);
+        ctx.closePath();
+        ctx.fill();
+
+        // Karakter ağacın arkasına geçtiğinde yapraklar yarı saydamlaşır (2.5D Occlusion)
+        const behindTree = Math.abs(hero.x - p.x) < 52 && hero.y < p.y && hero.y > p.y - 140;
+        ctx.globalAlpha = behindTree ? 0.42 : 1;
+        ctx.drawImage(hdLeaves(p.seed), -96 + sway, -158, 192, 176);
+        ctx.restore();
+    };
+
+    window.hdRock = function(p) {
+        const pos = hdIsoProject(p.x, p.y, 0);
+        const s = p.scale || 1;
+        ctx.save();
+        ctx.translate(pos.x, pos.y);
+        ctx.scale(s, s);
+
+        // 3 Yüzeyli 2.5D Kaya (Sol Işıklı Yüz, Sağ Gölgeli Yüz, Üst Yüzey)
+        ctx.fillStyle = '#6e7672';
+        ctx.beginPath();
+        ctx.moveTo(-24, 6);
+        ctx.lineTo(-18, -18);
+        ctx.lineTo(2, -28);
+        ctx.lineTo(4, 10);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.fillStyle = '#363f3e';
+        ctx.beginPath();
+        ctx.moveTo(2, -28);
+        ctx.lineTo(24, -12);
+        ctx.lineTo(28, 6);
+        ctx.lineTo(4, 10);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.strokeStyle = 'rgba(220, 230, 220, 0.35)';
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.moveTo(-18, -18);
+        ctx.lineTo(2, -28);
+        ctx.lineTo(4, 10);
+        ctx.stroke();
+        ctx.restore();
+    };
+
+    // 5. 3 BOYUTLU DOĞU KALESİ / PAGODA BİNALARI (DEMİRCİ & PAZAR)
+    window.drawPagodaBuilding = function(c, wx, wy, title, sub, roof1, roof2, forge) {
+        const pos = hdIsoProject(wx, wy, 0);
+        const t = performance.now() * 0.001;
+        c.save();
+        c.translate(pos.x, pos.y);
+
+        // 3D Taş Platform (Ön Yüz ve Yan Derinlik)
+        c.fillStyle = '#474e4b';
+        c.beginPath();
+        c.moveTo(-74, -4);
+        c.lineTo(66, -4);
+        c.lineTo(80, -16);
+        c.lineTo(-60, -16);
+        c.closePath();
+        c.fill();
+
+        c.fillStyle = '#2d3331';
+        c.fillRect(-74, -4, 140, 22);
+        c.fillStyle = '#1d2221';
+        c.beginPath();
+        c.moveTo(66, -4);
+        c.lineTo(80, -16);
+        c.lineTo(80, 6);
+        c.lineTo(66, 18);
+        c.closePath();
+        c.fill();
+
+        // Ön Duvar ve 2.5D Sağ Yan Duvar (Perspektif Derinlik)
+        const frontWall = c.createLinearGradient(-64, -74, 58, 0);
+        frontWall.addColorStop(0, '#8f876e');
+        frontWall.addColorStop(1, '#4f5244');
+        c.fillStyle = frontWall;
+        c.fillRect(-64, -74, 122, 72);
+
+        // Sağ Yan Duvar (3D Extrusion)
+        c.fillStyle = '#383b31';
+        c.beginPath();
+        c.moveTo(58, -74);
+        c.lineTo(74, -88);
+        c.lineTo(74, -16);
+        c.lineTo(58, -2);
+        c.closePath();
+        c.fill();
+
+        // Ahşap Sütunlar ve Kirişler
+        c.fillStyle = '#3b2818';
+        [-64, -26, 20, 54].forEach(px => c.fillRect(px, -74, 6, 72));
+        c.fillRect(-64, -74, 122, 7);
+
+        // İç Mekan / Demirci Kor Ateşi veya Pazar Fenerleri
+        c.fillStyle = '#111618';
+        c.fillRect(-22, -52, 42, 50);
+        if (forge) {
+            const flicker = Math.sin(t * 14) * 4;
+            const fire = c.createRadialGradient(-2, -24, 2, -2, -24, 34 + flicker);
+            fire.addColorStop(0, '#fff4b8');
+            fire.addColorStop(0.4, '#f97316');
+            fire.addColorStop(1, 'rgba(180, 40, 10, 0)');
+            c.fillStyle = fire;
+            c.beginPath();
+            c.arc(-2, -24, 34 + flicker, 0, Math.PI * 2);
+            c.fill();
+            // 3D Demirci Örsü
+            c.fillStyle = '#64748b';
+            c.fillRect(14, -20, 24, 10);
+            c.fillStyle = '#334155';
+            c.fillRect(18, -10, 16, 10);
+        }
+
+        // Alt Kat Kıvrımlı Pagoda Çatısı
+        const roofGrad = c.createLinearGradient(0, -122, 0, -64);
+        roofGrad.addColorStop(0, forge ? '#7c2d12' : '#1e3a8a');
+        roofGrad.addColorStop(0.5, forge ? '#451a03' : '#172554');
+        roofGrad.addColorStop(1, '#111827');
+        c.fillStyle = roofGrad;
+        c.beginPath();
+        c.moveTo(-88, -66);
+        c.quadraticCurveTo(-45, -82, -38, -104);
+        c.lineTo(44, -104);
+        c.quadraticCurveTo(55, -82, 92, -66);
+        c.lineTo(78, -58);
+        c.lineTo(-78, -58);
+        c.closePath();
+        c.fill();
+        c.strokeStyle = '#d4b475';
+        c.lineWidth = 1.6;
+        c.stroke();
+
+        // Üst Kat Pagoda Çatısı ve Altın Alem
+        c.beginPath();
+        c.moveTo(-62, -98);
+        c.quadraticCurveTo(0, -138, 66, -98);
+        c.lineTo(52, -90);
+        c.lineTo(-50, -90);
+        c.closePath();
+        c.fill();
+        c.stroke();
+
+        // Tabela
+        c.fillStyle = 'rgba(10, 15, 22, 0.92)';
+        c.beginPath();
+        c.roundRect(-58, 22, 116, 20, 5);
+        c.fill();
+        c.strokeStyle = 'rgba(245, 190, 95, 0.65)';
+        c.lineWidth = 1.2;
+        c.stroke();
+        c.fillStyle = '#f3dfb6';
+        c.font = 'bold 10.5px Cinzel, Georgia';
+        c.textAlign = 'center';
+        c.fillText(title, 0, 36);
+        c.restore();
+    };
+
+    // 6. 3 BOYUTLU MONOLİT METİN TAŞLARI VE DÖNEN KRİSTAL PARÇALARI
+    window.hdStone = function(r, t) {
+        const pos = hdIsoProject(r.x, r.y, 0);
+        c = ctx;
+        c.save();
+        c.translate(pos.x, pos.y);
+
+        // 2.5D Perspektif Tehlike Halkası (Telegraph)
+        if (r.telegraphRadius > 0) {
+            c.fillStyle = 'rgba(225, 29, 72, 0.22)';
+            c.strokeStyle = 'rgba(251, 113, 133, 0.92)';
+            c.lineWidth = 2;
+            c.beginPath();
+            c.ellipse(0, 8, r.telegraphRadius, r.telegraphRadius * TILT_Y, 0, 0, Math.PI * 2);
+            c.fill();
+            c.stroke();
+        }
+
+        // Yerdeki Lavlı Krater Çukuru
+        c.fillStyle = '#12131a';
+        c.beginPath();
+        c.ellipse(0, 10, 34, 34 * TILT_Y, 0, 0, Math.PI * 2);
+        c.fill();
+
+        const pulse = 1 + (r.pulse || 0) * 0.015;
+        c.save();
+        c.scale(pulse, pulse);
+
+        // Sol Yüzey (Işıklı Kristal Kaya)
+        const leftFace = c.createLinearGradient(-26, -68, 4, 14);
+        leftFace.addColorStop(0, r.tier === 2 ? '#fca5a5' : '#d8b4fe');
+        leftFace.addColorStop(0.4, r.tier === 2 ? '#7f1d1d' : '#4c1d95');
+        leftFace.addColorStop(1, '#111827');
+        c.fillStyle = leftFace;
+        c.beginPath();
+        c.moveTo(-26, 8);
+        c.lineTo(-22, -34);
+        c.lineTo(0, -72);
+        c.lineTo(4, -22);
+        c.lineTo(0, 16);
+        c.closePath();
+        c.fill();
+
+        // Sağ Yüzey (Gölgeli Kristal Kaya)
+        const rightFace = c.createLinearGradient(0, -72, 28, 16);
+        rightFace.addColorStop(0, r.tier === 2 ? '#991b1b' : '#581c87');
+        rightFace.addColorStop(1, '#090d16');
+        c.fillStyle = rightFace;
+        c.beginPath();
+        c.moveTo(0, -72);
+        c.lineTo(24, -36);
+        c.lineTo(26, 8);
+        c.lineTo(0, 16);
+        c.lineTo(4, -22);
+        c.closePath();
+        c.fill();
+
+        // Parlayan Damarlar
+        c.strokeStyle = r.tier === 2 ? '#fb923c' : '#e879f9';
+        c.lineWidth = 2;
+        c.beginPath();
+        c.moveTo(0, -60);
+        c.lineTo(-6, -32);
+        c.lineTo(5, -12);
+        c.lineTo(-3, 10);
+        c.stroke();
+
+        // Metin Taşı Etrafında Havada Dönen 3D Kaya Parçaları
+        for (let i = 0; i < 3; i++) {
+            const ang = t * 2.2 + i * 2.09;
+            const ox = Math.cos(ang) * 32;
+            const oy = Math.sin(ang) * (32 * TILT_Y) - 26;
+            c.fillStyle = r.tier === 2 ? '#f97316' : '#c084fc';
+            c.beginPath();
+            c.moveTo(ox, oy - 6);
+            c.lineTo(ox + 5, oy);
+            c.lineTo(ox, oy + 5);
+            c.lineTo(ox - 5, oy);
+            c.closePath();
+            c.fill();
+        }
+        c.restore();
+
+        // Baş Üstü Metin Bilgisi
+        c.font = 'bold 10px Georgia';
+        c.textAlign = 'center';
+        c.fillStyle = '#f3e8ff';
+        c.fillText(r.name, 0, -84);
+        c.fillStyle = '#090d16';
+        c.fillRect(-26, -78, 52, 4);
+        c.fillStyle = r.tier === 2 ? '#f97316' : '#c084fc';
+        c.fillRect(-26, -78, 52 * Math.max(0, r.hp / r.maxHp), 4);
+        c.restore();
+    };
+
+    // 7. KOORDİNAT SİSTEMİNİ 2.5D PROJEKSİYONLA ÇALIŞTIRACAK SARMALAYICI (WRAPPER)
+    const wrapWorldEntityDraw = (origFn) => function(ctxOrEntity, ...rest) {
+        // drawHumanoidCharacter(c, x, y, ...) vs hdMob(m, t)
+        if (typeof ctxOrEntity === 'object' && typeof ctxOrEntity.save === 'function') {
+            const wx = rest[0], wy = rest[1];
+            const p = hdIsoProject(wx, wy, 0);
+            const copy = rest.slice();
+            copy[0] = p.x;
+            copy[1] = p.y;
+            return origFn(ctxOrEntity, ...copy);
+        } else if (ctxOrEntity && typeof ctxOrEntity.x === 'number') {
+            const ent = ctxOrEntity;
+            const origX = ent.x, origY = ent.y;
+            const p = hdIsoProject(origX, origY, 0);
+            ent.x = p.x;
+            ent.y = p.y;
+            try {
+                return origFn(ent, ...rest);
+            } finally {
+                ent.x = origX;
+                ent.y = origY;
+            }
+        }
+        return origFn(ctxOrEntity, ...rest);
+    };
+
+    window.drawHumanoidCharacter = wrapWorldEntityDraw(window.drawHumanoidCharacter);
+    window.hdMob = wrapWorldEntityDraw(window.hdMob);
+    window.drawPortalGate = wrapWorldEntityDraw(window.drawPortalGate);
+    window.hdHorse = function(t, rx = hero.x, ry = hero.y) {
+        const p = hdIsoProject(rx, ry, 0);
+        const s = Math.sin(hero.walkFrame * 0.36) * 6;
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.fillStyle = '#382d25';
+        for (let i = 0; i < 4; i++) ctx.fillRect(-17 + i * 10, 2 + (i % 2 ? s : -s), 4, 22);
+        const g = ctx.createLinearGradient(-25, -20, 25, 10);
+        g.addColorStop(0, '#b89464');
+        g.addColorStop(1, '#4c3e30');
+        ctx.fillStyle = g;
+        ctx.beginPath(); ctx.ellipse(0, -2, 29, 15, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(23, -16, 9, 19, -0.35, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(30, -30, 12, 6, 0.3, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
+    };
+
+    // 8. ANA 2.5D SAHNE RENDER DÖNGÜSÜ (DERİNLİK SIRALAMALI & SİNEMATİK IŞIKLI)
+    window.renderGame = function() {
+        if (!document.getElementById('screen-game').classList.contains('active')) return;
+        const t = performance.now() / 1000;
+
+        ctx.setTransform(hd.dpr, 0, 0, hd.dpr, 0, 0);
+        ctx.clearRect(0, 0, hd.width, hd.height);
+
+        // 1) 2.5D Perspektif Zemin ve Nehir
+        hdGround(t);
+        hdWater(t);
+
+        // 2) Gölgeler (Zemine Yapışık 2.5D Perspektifli)
+        const props = envProps.filter(p => hdVisible(p.x, p.y));
+        props.forEach(p => hdShadow(p.x, p.y, p.type === 'tree' ? 44 * p.scale : 24, p.type === 'tree' ? 22 : 12, 1.4));
+
+        const mobs = monsters.filter(m => hdVisible(m.x, m.y));
+        const stones = rifts.filter(r => hdVisible(r.x, r.y));
+        mobs.forEach(m => hdShadow(m.x, m.y, m.boss ? 38 : 20, m.boss ? 18 : 10, 1.4));
+        stones.forEach(r => hdShadow(r.x, r.y, 34, 16, 1.6));
+        hdShadow(hero.x, hero.y, player.adventure?.mounted ? 34 : 20, 11, 1.5);
+
+        // Hedef ve Yürüme Halkaları
+        if (hd.move) {
+            const mp = hdIsoProject(hd.move.x, hd.move.y, 0);
+            ctx.strokeStyle = 'rgba(245, 215, 138, 0.75)';
+            ctx.lineWidth = 1.6;
+            ctx.beginPath();
+            ctx.ellipse(mp.x, mp.y, 14, 14 * TILT_Y, 0, 0, Math.PI * 2);
+            ctx.stroke();
+        }
+        if (hd.target && hd.target.hp > 0) {
+            const tp = hdIsoProject(hd.target.x, hd.target.y, 0);
+            ctx.strokeStyle = 'rgba(251, 191, 36, 0.9)';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.ellipse(tp.x, tp.y + 8, hd.target.boss ? 44 : 26, (hd.target.boss ? 44 : 26) * TILT_Y, 0, 0, Math.PI * 2);
+            ctx.stroke();
+        }
+
+        // Yerdeki Ganimet Işık Sütunları
+        groundDrops.filter(g => hdVisible(g.x, g.y)).forEach(g => {
+            const gp = hdIsoProject(g.x, g.y, 0);
+            const c = g.type === 'gold' ? '#fbbf24' : '#c084fc';
+            const gr = ctx.createLinearGradient(gp.x, gp.y, gp.x, gp.y - 38);
+            gr.addColorStop(0, c + 'cc');
+            gr.addColorStop(1, c + '00');
+            ctx.fillStyle = gr;
+            ctx.fillRect(gp.x - 4, gp.y - 38, 8, 38);
+            ctx.fillStyle = c;
+            ctx.beginPath();
+            ctx.ellipse(gp.x, gp.y, 5, 5 * TILT_Y, 0, 0, Math.PI * 2);
+            ctx.fill();
+        });
+
+        // 3) Y-SORTING (Gerçek 2.5D Derinlik Sıralaması)
+        const queue = [];
+        props.forEach(p => queue.push({ y: p.y, draw: () => p.type === 'tree' ? hdTree(p, t) : hdRock(p) }));
+        mobs.forEach(m => queue.push({ y: m.y, draw: () => hdMob(m, t) }));
+        stones.forEach(r => queue.push({ y: r.y, draw: () => hdStone(r, t) }));
+        getPortals().forEach(portal => queue.push({ y: portal.y, draw: () => drawPortalGate(portal, t) }));
+
+        if (isTownZone()) {
+            const marketTitle = player.zone === 'village2' ? 'SEUNGRYONG PAZARI' : (player.zone === 'village3' ? 'KERVAN DURAĞI' : 'SANCAK PAZARI');
+            queue.push({ y: -45, draw: () => drawPagodaBuilding(ctx, -135, -45, 'DEMİRCİ OCAĞI', '', '#654f42', '#302c29', true) });
+            queue.push({ y: -45, draw: () => drawPagodaBuilding(ctx, 135, -45, marketTitle, '', '#485d5a', '#283d3b', false) });
+            VILLAGE_NPCS.forEach(n => {
+                queue.push({ y: n.y, draw: () => drawHumanoidCharacter(ctx, n.x, n.y, Math.PI / 2, 0, 'blade', 9, `${n.icon} ${n.name}`, 100, 100, 0, false, t, false) });
+            });
+        }
+
+        if (player.zone === 'pk') {
+            Object.values(remotePlayers).forEach(rp => {
+                queue.push({ y: rp.y, draw: () => drawHumanoidCharacter(ctx, rp.x, rp.y, rp.angle || 0, t * 6, rp.heroClass || 'blade', rp.weaponLevel || 0, rp.name || 'Oyuncu', rp.hp || 1, rp.maxHp || 1, rp.slashAnim || 0, false, t, false) });
+            });
+        }
+
+        queue.push({
+            y: hero.y,
+            draw: () => {
+                const mounted = player.adventure?.mounted;
+                if (mounted) hdHorse(t, hero.x, hero.y);
+                drawHumanoidCharacter(ctx, hero.x, hero.y - (mounted ? 22 : 0), hero.angle, hero.walkFrame, player.heroClass, player.weaponLevel, player.username, player.hp, getEffectiveMaxHp(), hero.slashAnim, true, t, !hero.isMoving && hero.idleFrames > 45);
+            }
+        });
+
+        queue.sort((a, b) => a.y - b.y);
+        queue.forEach(item => item.draw());
+
+        // 4) Parçacık Efektleri, Meşale Işıkları ve Hasar Yazıları
+        ctx.save();
+        ctx.globalCompositeOperation = 'screen';
+        [...particles, ...hd.fx].forEach(pt => {
+            const pp = hdIsoProject(pt.x, pt.y, 0);
+            ctx.globalAlpha = Math.min(1, pt.life / (pt.max || 25));
+            ctx.fillStyle = pt.color;
+            ctx.strokeStyle = pt.color;
+            if (pt.ring) {
+                const r = (1 - pt.life / pt.max) * pt.radius;
+                ctx.lineWidth = 2.2;
+                ctx.beginPath();
+                ctx.ellipse(pp.x, pp.y, r, r * TILT_Y, 0, 0, Math.PI * 2);
+                ctx.stroke();
+            } else {
+                ctx.beginPath();
+                ctx.arc(pp.x, pp.y, Math.max(0.5, pt.size || 2), 0, Math.PI * 2);
+                ctx.fill();
+            }
+        });
+        ctx.restore();
+
+        floatingTexts.forEach(ft => {
+            const fp = hdIsoProject(ft.x, ft.y, 18);
+            ctx.save();
+            ctx.font = `900 ${ft.size || 13}px Nunito, sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.lineWidth = 3;
+            ctx.strokeStyle = 'rgba(8, 12, 18, 0.85)';
+            ctx.strokeText(ft.text, fp.x, fp.y);
+            ctx.fillStyle = ft.color;
+            ctx.fillText(ft.text, fp.x, fp.y);
+            ctx.restore();
+        });
+
+        if (typeof hdDrawPetOverlay === 'function') hdDrawPetOverlay();
+        hdAtmosphere(t);
+        renderMinimap();
+    };
+})();
 </script>
 </body>
 </html>
