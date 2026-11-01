@@ -9773,10 +9773,19 @@ function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"f
         }
         cache.set(zone,out);return out;
     }
-    function riverBedGeometry(T,river){
+    function riverColumns(half=6500){
+        half=Math.max(6500,half);const xs=[];
+        // Fine banks inside the playable map, coarse landscape beyond the walls.
+        for(let x=-half;x<-6500;x=Math.min(-6500,x+200))xs.push(x);
+        for(let x=-6500;x<=6500;x+=40)xs.push(x);
+        for(let x=6700;x<half;x+=200)xs.push(x);
+        if(half>6500)xs.push(half);return xs;
+    }
+    function riverBedGeometry(T,river,half=6500){
         const positions=[],uv=[],idx=[];
-        for(let x=-6500,i=0;x<=6500;x+=40,i++){
-            const cy=river(x),rows=[[-6500,0],[cy-112,0],[cy-84,.4],[cy-54,-1.35],[cy+54,-1.35],[cy+84,.4],[cy+112,0],[6500,0]];
+        const columns=riverColumns(half);half=Math.max(6500,half);
+        for(let i=0;i<columns.length;i++){const x=columns[i];
+            const cy=river(x),rows=[[-half,0],[cy-112,0],[cy-84,.4],[cy-54,-1.35],[cy+54,-1.35],[cy+84,.4],[cy+112,0],[half,0]];
             rows.forEach(([z,h])=>{positions.push(x/20,h,z/20);uv.push(x/110,z/110);});
             if(i)for(let j=0;j<7;j++){const a=(i-1)*8+j,b=i*8+j;idx.push(a,a+1,b,a+1,b+1,b);}
         }
@@ -9790,8 +9799,8 @@ function(t,e){"object"==typeof exports&&"undefined"!=typeof module?e(exports):"f
         for(let i=0;i<count;i++){idx.push(bottom,i,(i+1)%count);const a=(rings.length-1)*count+i,b=(rings.length-1)*count+(i+1)%count;idx.push(top,b,a);}
         const g=new T.BufferGeometry();g.setAttribute('position',new T.Float32BufferAttribute(positions,3));g.setAttribute('uv',new T.Float32BufferAttribute(uv,2));g.setIndex(idx);const flat=g.toNonIndexed();g.dispose();flat.computeVertexNormals();return flat;
     }
-    root.HD_BIOMES=profiles;root.hdBiome=biome;root.hdBiomeDecor=decorations;root.HDWorldGeometry={riverBedGeometry,jaggedMetinGeometry};
-    if(typeof module!=='undefined'&&module.exports)module.exports={profiles,biome,decorations,riverBedGeometry,jaggedMetinGeometry};
+    root.HD_BIOMES=profiles;root.hdBiome=biome;root.hdBiomeDecor=decorations;root.HDWorldGeometry={riverColumns,riverBedGeometry,jaggedMetinGeometry};
+    if(typeof module!=='undefined'&&module.exports)module.exports={profiles,biome,decorations,riverColumns,riverBedGeometry,jaggedMetinGeometry};
 })(typeof window!=='undefined'?window:globalThis);
 </script>
 <script>/* HANEDAN: menus, persistent pet progression, interaction and encounter recovery. */
@@ -10889,7 +10898,8 @@ updateGame=function(){
     if(hd.channel?.kind==='mining'&&now-(hd.feedbackWorkBeat||0)>830){playSound('mine');hd.feedbackWorkBeat=now;}
     const foot=hd.feedbackFoot;if(!foot||foot.owner!==player||foot.zone!==player.zone){hd.feedbackFoot={owner:player,zone:player.zone,x:hero.x,y:hero.y,d:0};return;}
     const moved=Math.hypot(hero.x-foot.x,hero.y-foot.y);foot.x=hero.x;foot.y=hero.y;
-    if(hero.isMoving&&moved>.01&&moved<20&&!hd.channel){foot.d+=moved;if(foot.d>=62){foot.d%=62;playSound(isTownZone()||typeof hdDungeonActive==='function'&&hdDungeonActive()?'step_stone':'step_earth');}}else if(!hero.isMoving)foot.d=0;
+    const stepLength=typeof hdWorldPreferences!=='undefined'&&hdWorldPreferences.mode==='3d'&&hd.footstepLength>0?hd.footstepLength:62;
+    if(hero.isMoving&&moved>.01&&moved<20&&!hd.channel){foot.d+=moved;if(foot.d>=stepLength){foot.d%=stepLength;playSound(isTownZone()||typeof hdDungeonActive==='function'&&hdDungeonActive()?'step_stone':'step_earth');}}else if(!hero.isMoving)foot.d=0;
 };
 function hdSetSoundVolume(value){const volume=hdSound.setVolume(Number(value)/100);try{localStorage.setItem('hanedan_sfx_volume',String(volume));}catch{}const label=document.getElementById('hd-sfx-value');if(label)label.textContent=Math.round(volume*100)+'%';}
 document.addEventListener('pointerdown',()=>initAudio(),{passive:true,capture:true});
@@ -11058,7 +11068,16 @@ const hdSoundSlider=document.getElementById('hd-sfx-volume');if(hdSoundSlider)hd
 </script>
 <script>/* Static collision uses nearby grid buckets; no scene traversal in the simulation. */
 (function(root){
-    const EDGE=6200,CELL=160;
+    const EDGE=6200,CELL=160,SCENERY_HALF=18000;
+    // Reserve the whole visible footprint, not only the tree trunk or rock centre.
+    function sceneryRadius(p){return (p.radius??({tree:100,pine:65,palm:80,deadTree:55,cactus:38,rock:30,ruin:55,standingStone:35,runePillar:35,iceSpire:45,sandArch:75,igloo:70,tent:70,dune:95,well:40,marketStall:60,flowers:16,lantern:16,banner:22}[p.type]||30))*(p.scale||1);}
+    function roadReserved(x,y,pad=0,zone='',layout=root.HDTownLayout){
+        if(Math.abs(x)<56+pad||Math.abs(y)<56+pad)return true;
+        const river=420+Math.sin(x*.0022)*140;
+        if([-900,900].some(bx=>Math.abs(x-bx)<49+pad&&Math.abs(y-river)<112+pad))return true;
+        return !!(layout?.isTown(zone)&&layout.reserved(x,y,pad));
+    }
+    function sceneryAllowed(p,zone,layout=root.HDTownLayout){const r=sceneryRadius(p);return Math.abs(p.x)+r<EDGE-12&&Math.abs(p.y)+r<EDGE-12&&!roadReserved(p.x,p.y,r+8,zone,layout);}
     class Obstacles{
         constructor(){this.cells=new Map();this.items=[];}
         add(o){this.items.push(o);const w=o.w||o.r,h=o.h||o.r;for(let x=Math.floor((o.x-w)/CELL);x<=Math.floor((o.x+w)/CELL);x++)for(let y=Math.floor((o.y-h)/CELL);y<=Math.floor((o.y+h)/CELL);y++){const key=x+':'+y;if(!this.cells.has(key))this.cells.set(key,[]);this.cells.get(key).push(o);}}
@@ -11080,9 +11099,9 @@ const hdSoundSlider=document.getElementById('hd-sfx-volume');if(hdSoundSlider)hd
         if(theme==='wetland')for(let i=-e;i<=e;i+=22)for(const side of [-1,1])cube(mat('#4c4c38',0,.98,'bark'),side*(e-2),height*.5,i,1.3,height+2,1.3).rotation.z=side*.09;
         batchDirect(g,'frontier:'+theme);g.name='world-boundary:'+theme;g.userData.collisionEdge=EDGE;return g;
     }
-    const api={EDGE,Obstacles,path,boundary};root.HDFrontier=api;if(typeof module!=='undefined')module.exports=api;if(!root.document)return;
+    const api={EDGE,SCENERY_HALF,sceneryRadius,roadReserved,sceneryAllowed,Obstacles,path,boundary};root.HDFrontier=api;if(typeof module!=='undefined')module.exports=api;if(!root.document)return;
     let grid=new Obstacles(),owner=null,zone='';
-    function rebuild(){grid=new Obstacles();owner=envProps;zone=player.zone;if(hdDungeonActive())return;const props=[...envProps,...hdFrontierDecor(zone).filter(p=>!isTownZone()||!HDTownLayout.reserved(p.x,p.y,55))];for(const p of props){const scale=p.scale||1;if(['tree','pine','palm','deadTree','cactus'].includes(p.type))grid.add({x:p.x,y:p.y,r:10*scale});else if(['rock','ruin','standingStone','runePillar','iceSpire','sandArch','igloo','tent','well'].includes(p.type))grid.add({x:p.x,y:p.y,r:(p.type==='igloo'||p.type==='tent'?45:22)*scale});}
+    function rebuild(){grid=new Obstacles();zone=player.zone;if(hdDungeonActive()){owner=envProps;return;}envProps=envProps.filter(p=>sceneryAllowed(p,zone));owner=envProps;const props=[...envProps,...hdFrontierDecor(zone).filter(p=>sceneryAllowed(p,zone))];for(const p of props){const scale=p.scale||1;if(['tree','pine','palm','deadTree','cactus'].includes(p.type))grid.add({x:p.x,y:p.y,r:10*scale});else if(['rock','ruin','standingStone','runePillar','iceSpire','sandArch','igloo','tent','well'].includes(p.type))grid.add({x:p.x,y:p.y,r:(p.type==='igloo'||p.type==='tent'?45:22)*scale});}
         if(isTownZone()){for(const n of VILLAGE_NPCS){const b=HDTownLayout.building(n);grid.add({x:b.x,y:b.y,w:63,h:56});}grid.add({...HDTownLayout.center,r:48});}
     }
     root.hdWorldWalkable=(x,y,r=11)=>HDNavigation.land(x,y,r)&&!grid.blocked(x,y,r);
@@ -11116,6 +11135,18 @@ const hdSoundSlider=document.getElementById('hd-sfx-volume');if(hdSoundSlider)hd
 </script>
 <script>/* Rigid armor pieces share one skinned draw, while elbows and knees remain independent. */
 (function(root){
+    function locomotion(u,data,t,scale=1,riding=false){
+        const elapsed=u.poseTime===undefined?0:Math.max(0,t-u.poseTime),dt=Math.min(.1,elapsed),distance=u.lastX===undefined?0:Math.hypot(data.x-u.lastX,data.y-u.lastY);
+        u.lastX=data.x;u.lastY=data.y;u.poseTime=t;
+        const teleport=distance>Math.max(60,elapsed*600),moving=elapsed>0&&distance>.02&&!teleport&&!riding;
+        const cycle=(u.isMount?170:u.quadruped?74:124)*Math.max(.35,Math.abs(scale));
+        if(teleport){u.stride=0;u.motion=0;}
+        u.stride=(u.stride||0)+(moving?distance*Math.PI*2/cycle:0);
+        u.motion=(u.motion||0)+((moving?1:0)-(u.motion||0))*(1-Math.exp(-14*dt));
+        const gait=u.gait||(u.gait={});gait.moving=moving;gait.walk=Math.sin(u.stride)*u.motion;gait.lift=Math.cos(u.stride)*u.motion;
+        gait.bob=-(1-Math.cos(u.stride*2))*.1*u.motion;gait.sway=Math.sin(u.stride)*.028*u.motion;
+        gait.stepLength=cycle/2;return gait;
+    }
     function build(T,group,material,exclude=null){
         group.updateMatrixWorld(true);const inverse=new T.Matrix4().copy(group.matrixWorld).invert(),bones=[],pieces=[],segments=[];
         group.traverse(o=>{if(o.isBone)bones.push(o);});
@@ -11130,7 +11161,7 @@ const hdSoundSlider=document.getElementById('hd-sfx-volume');if(hdSoundSlider)hd
         const skin=new T.SkinnedMesh(geometry,material);skin.castShadow=skin.receiveShadow=true;skin.frustumCulled=false;pieces.forEach(o=>o.removeFromParent());group.add(skin);group.updateMatrixWorld(true);skin.bind(new T.Skeleton(bones));group.userData.skinMesh=skin;return skin;
     }
     function recolor(T,group,from,to,armorOnly=false){const skin=group.userData.skinMesh;if(!skin)return;const colors=skin.geometry.attributes.color,target=new T.Color(to);for(const s of skin.geometry.userData.segments)if(armorOnly?s.metal>.4:s.color===from)for(let i=s.start;i<s.start+s.count;i++)colors.setXYZ(i,target.r,target.g,target.b);colors.needsUpdate=true;}
-    root.HDWorldRig={build,recolor};if(typeof module!=='undefined'&&module.exports)module.exports={build,recolor};
+    root.HDWorldRig={build,recolor,locomotion};if(typeof module!=='undefined'&&module.exports)module.exports={build,recolor,locomotion};
 })(typeof window!=='undefined'?window:globalThis);
 </script>
 <script>/* Sancak village art, baked static silhouettes and time-normalized combat poses. */
@@ -11674,7 +11705,7 @@ const hdSoundSlider=document.getElementById('hd-sfx-volume');if(hdSoundSlider)hd
         }
         function makeGate(p){const g=new T.Group();if(hdDungeonDefinition(p.to)){for(const side of [-1,1]){cube(g,'#7f827c',side*1.7,1.4,0,.7,2.8,1.3,0,'stone');cube(g,'#666b68',side*1.7,.18,0,1,.36,1.6,0,'stone');cube(g,'#4d4640',side*2.15,1.9,.4,.2,.7,.24);mesh(g,cone(),luminous('#edc18b',.8),side*2.15,2.38,.4,.13,.48,.13);}mesh(g,geo('dungeon-entrance-arch',()=>new T.TorusGeometry(1.7,.35,7,28,Math.PI)),mat('#9c9482',0,.9,'stone'),0,2.8,0);cube(g,'#0a1116',0,1.65,-.5,2.7,3.3,.12);for(let i=0;i<3;i++)cube(g,'#777a73',0,.06+i*.06,2.4-i*.6,3.5,.12+i*.12,.65,0,'stone');g.userData.ring=new T.Group();g.userData.lightColor='#e5bc84';g.userData.lightHeight=1.7;batchDirect(g,'dungeon-entrance');return g;}cube(g,'#8a8577',-1.6,1.8,0,.6,3.6,.8,0,'stone');cube(g,'#8a8577',1.6,1.8,0,.6,3.6,.8,0,'stone');cube(g,'#736c5b',0,3.8,0,4,.5,1,0,'stone');
             const color=hdBiome(player.zone).accent,ring=mesh(g,geo('portal',()=>new T.TorusGeometry(1.35,.09,8,48)),luminous(color),0,1.85,0,1,1.25,1);glowDisc(g,color,3.5);beam(g,color,9,.1);g.userData.ring=ring;g.userData.lightColor=color;g.userData.lightHeight=1.6;return g;}
-        function ribbon(center,width,y,material,divisions=1){const verts=[],uvs=[],indices=[];for(let x=-6500,i=0;x<=6500;x+=40,i++){const z=typeof center==='function'?center(x):center;for(let k=0;k<=divisions;k++){verts.push(x*S,y,(z-width/2+k/divisions*width)*S);uvs.push(x/120,k/divisions);}if(i>0)for(let k=0;k<divisions;k++){const a=(i-1)*(divisions+1)+k,b=i*(divisions+1)+k;indices.push(a,a+1,b,a+1,b+1,b);}}
+        function ribbon(center,width,y,material,divisions=1,half=6500){const verts=[],uvs=[],indices=[],columns=HDWorldGeometry.riverColumns(half);for(let i=0;i<columns.length;i++){const x=columns[i],z=typeof center==='function'?center(x):center;for(let k=0;k<=divisions;k++){verts.push(x*S,y,(z-width/2+k/divisions*width)*S);uvs.push(x/120,k/divisions);}if(i>0)for(let k=0;k<divisions;k++){const a=(i-1)*(divisions+1)+k,b=i*(divisions+1)+k;indices.push(a,a+1,b,a+1,b+1,b);}}
             const geom=new T.BufferGeometry();geom.setAttribute('position',new T.Float32BufferAttribute(verts,3));geom.setAttribute('uv',new T.Float32BufferAttribute(uvs,2));geom.setIndex(indices);geom.computeVertexNormals();const m=mesh(world,geom,material);m.castShadow=false;return m;}
         const shadowCasters=[],shadowBaker=HDRemaster.shadowBaker(T,{scene});
         let terrain=null,water=null,zone='',lastQuality='',lastWidth=0,lastHeight=0,lastLight='',worldOwner=null,decorationList=[],dungeonGates=[];
@@ -11701,8 +11732,8 @@ const hdSoundSlider=document.getElementById('hd-sfx-volume');if(hdSoundSlider)hd
         function makeDungeonChest(){const g=new T.Group();cube(g,'#63513b',0,.45,0,1.65,.9,1,0,'bark');for(const x of [-.63,.63])cube(g,'#b39a62',x,.46,0,.12,.94,1.08,.7,'steel');const lid=new T.Group();lid.position.set(0,.9,.5);g.add(lid);cube(lid,'#756047',0,.09,-.5,1.72,.22,1.08,0,'bark');for(const x of [-.63,.63])cube(lid,'#c2a86e',x,.1,-.5,.13,.25,1.14,.75,'steel');const lock=mesh(g,box(),mat('#d2ae6c',.75,.3),0,.63,-.57,.23,.27,.14);const glow=glowDisc(g,'#e4c887',2,.06);batchDirect(lid,'dungeon-chest-lid');g.userData={lid,lock,glow,kind:'chest',shadowSize:1};return g;}
         function rebuild(){clearWorld();camera.userData.x=hero.x*S;camera.userData.z=hero.y*S;zone=player.zone;worldOwner=envProps;
             if(hdDungeonActive()){buildDungeonWorld();return;}dungeonGates=[];
-            const profile=hdBiome(zone);world.add(HDFrontier.boundary(T,{geo,mat,mesh,batchDirect},profile.theme));const snowy=profile.theme==='snow',sand=profile.theme==='desert',red=zone==='pk';decorationList=hdFrontierDecor(zone).filter(p=>!isTownZone()||!HDTownLayout.reserved(p.x,p.y,55));
-            const groundMat=new T.MeshStandardMaterial({color:snowy?'#f2f7fa':sand?'#fff0cf':red?'#ad8a8b':'#c1c9b6',roughness:snowy?.78:.98});terrain=mesh(world,geo('river-cut-terrain',()=>HDWorldGeometry.riverBedGeometry(T,getRiverCenterY)),groundMat);terrain.castShadow=false;
+            const profile=hdBiome(zone);world.add(HDFrontier.boundary(T,{geo,mat,mesh,batchDirect},profile.theme));const snowy=profile.theme==='snow',sand=profile.theme==='desert',red=zone==='pk';decorationList=hdFrontierDecor(zone).filter(p=>HDFrontier.sceneryAllowed(p,zone));
+            const groundMat=new T.MeshStandardMaterial({color:snowy?'#f2f7fa':sand?'#fff0cf':red?'#ad8a8b':'#c1c9b6',roughness:snowy?.78:.98});terrain=mesh(world,geo('river-cut-landscape',()=>HDWorldGeometry.riverBedGeometry(T,getRiverCenterY,HDFrontier.SCENERY_HALF)),groundMat);terrain.castShadow=false;terrain.name='world-landscape';
             const groundTex=biomeTexture(profile.theme);if(groundTex){terrain.material.map=groundTex;terrain.material.bumpMap=groundTex;terrain.material.bumpScale=snowy?.025:.075;}
             groundMat.onBeforeCompile=shader=>{shader.vertexShader='varying vec2 hdEarthPosition;\n'+shader.vertexShader;shader.vertexShader=shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nhdEarthPosition=position.xz;');shader.fragmentShader='varying vec2 hdEarthPosition;\n'+shader.fragmentShader;shader.fragmentShader=shader.fragmentShader.replace('#include <map_fragment>','#ifdef USE_MAP\nvec4 hdFine=texture2D(map,vMapUv);vec4 hdBroad=texture2D(map,vMapUv*0.237+vec2(0.37,0.61));float hdPatch=0.5+0.5*sin(hdEarthPosition.x*0.14+sin(hdEarthPosition.y*0.19)*1.8);diffuseColor*=mix(hdFine,hdBroad,0.25+hdPatch*0.2);diffuseColor.rgb*=0.83+hdPatch*0.22;\n#endif');};
             const roadmat=mat(player.zone==='village'?'#dbd3b6':isTownZone()?(sand?'#d2b78f':snowy?'#93afc1':'#c5c3b9'):snowy?'#bcc9ce':sand?'#c6ac80':red?'#8c6a78':'#a39a81',0,.97,player.zone==='village'?'citadelStone':isTownZone()?(sand?'sandstone':'stone'):snowy?'snow':sand?'sand':red?'stone':'ground');ribbon(0,112,.006,roadmat);const vertical=mesh(world,geo('vert-road',()=>{const g=new T.PlaneGeometry(5.6,610);const uv=g.attributes.uv;for(let i=0;i<uv.count;i++)uv.setY(i,uv.getY(i)*110);return g;}),roadmat,0,.009,0);vertical.rotation.x=-Math.PI/2;
@@ -11729,7 +11760,7 @@ const hdSoundSlider=document.getElementById('hd-sfx-volume');if(hdSoundSlider)hd
                     float hdFoam=smoothstep(0.96,0.998,hdFlow)*hdEdge;
                     diffuseColor.rgb*=0.86+hdFlow*0.035;
                     diffuseColor.rgb+=vec3(0.045,0.065,0.06)*hdEdge+vec3(0.1,0.15,0.14)*hdFoam;`);
-            };water=ribbon(getRiverCenterY,126,.24,watermat,8);
+            };water=ribbon(getRiverCenterY,126,.24,watermat,8,HDFrontier.SCENERY_HALF);water.name='world-river';
             for(const bx of [-900,0,900]){const by=getRiverCenterY(bx);cube(world,'#86735c',bx*S,.47,by*S,4.9,.32,9.6,0,'bark');for(const side of [-1,1]){bone(world,'#78634c',[bx*S+side*2.3,.9,by*S-4.8],[bx*S+side*2.3,.9,by*S+4.8],.06,.06);for(let j=-4;j<=4;j+=2)cube(world,'#9b8768',bx*S+side*2.3,.95,by*S+j,.12,1.4,.12);}}
             if(isTownZone()){for(const n of VILLAGE_NPCS){const b=HDTownLayout.building(n);makeHouse(b.x,b.y,n.id);}world.add(HDTownLayout.grounds(T,{geo,mat,mesh,batchDirect,desert:sand}));const fountain=HDTownLayout.fountain(T,{geo,mat,mesh,batchDirect});fountain.position.set(HDTownLayout.center.x*S,0,HDTownLayout.center.y*S);world.add(fountain);shadowCasters.push(fountain);}if(player.zone==='village'){const street=HDRemaster.village(T,{geo,mat,mesh,bone,batchDirect,night:hd.light==='night'});street.position.set(HDTownLayout.center.x*S,0,HDTownLayout.center.y*S);world.add(street);shadowCasters.push(street);}
         }
@@ -11797,15 +11828,14 @@ const hdSoundSlider=document.getElementById('hd-sfx-volume');if(hdSoundSlider)hd
         }
         function makeWorkTool(kind){const g=new T.Group();bone(g,'#877052',[0,-.42,0],[0,1.12,.1],.025,.018,0,'bark');if(kind==='mining'){bone(g,'#a4b2b5',[-.45,.98,.1],[.45,1.07,.1],.055,.04,.8,'steel');bone(g,'#b4c2c2',[-.45,.98,.1],[-.62,.77,.1],.04,.005,.8);}else{bone(g,'#9d8a68',[0,1.12,.1],[0,1.5,.26],.018,.006);const reel=mesh(g,geo('fishing-reel',()=>new T.TorusGeometry(.065,.014,4,12)),mat('#bdac7d',.65,.4),0,-.05,.05);reel.rotation.y=Math.PI/2;}g.position.set(0,-.5,0);return g;}
         function pose(obj,data,t,isHero=false){obj.position.x=data.x*S;obj.position.z=data.y*S;const angle=data.angle||0;obj.rotation.y=-angle-Math.PI/2;
-            const u=obj.userData,dt=Math.min(.1,Math.max(.001,t-(u.poseTime||t-.016))),distance=u.lastX===undefined?0:Math.hypot(data.x-u.lastX,data.y-u.lastY);u.lastX=data.x;u.lastY=data.y;u.poseTime=t;
-            const moving=isHero?hero.isMoving:data.isMoving!==undefined?data.isMoving:distance>dt*2;
-            u.stride=(u.stride||0)+(moving?distance*.13:0);u.motion=(u.motion||0)+((moving?1:0)-(u.motion||0))*Math.min(1,dt*14);
+            const u=obj.userData,gait=HDWorldRig.locomotion(u,data,t,obj.scale.x,isHero&&player.adventure?.mounted),moving=gait.moving;
+            if(isHero&&!player.adventure?.mounted||u.isMount)hd.footstepLength=gait.stepLength;
             const cast=!isHero?data.enemyCast:null,charging=cast&&cast.age<cast.windup,release=cast?Math.max(0,Math.min(1,(cast.age-cast.windup)/cast.recovery)):0;
-            const walk=Math.sin(u.stride)*u.motion,slash=isHero?hero.slashAnim:cast?10:0,phase=isHero?Math.max(0,Math.min(1,1-slash/(hero.attackMaxAnim||18))):cast?(charging?.12*cast.age/cast.windup:.12+release*.88):0,attack=Math.sin(phase*Math.PI);
-            if(u.legs)u.legs.forEach((leg,i)=>leg.rotation.x=walk*(u.quadruped?[1,-1,-1,1][i]:i%2?1:-1)*.45);
-            if(u.knees)u.knees.forEach((joint,i)=>joint.rotation.x=(u.quadruped?1:-1)*Math.max(0,-walk*(u.quadruped?[1,-1,-1,1][i]:i%2?1:-1))*.7);
+            const walk=gait.walk,slash=isHero?hero.slashAnim:cast?10:0,phase=isHero?Math.max(0,Math.min(1,1-slash/(hero.attackMaxAnim||18))):cast?(charging?.12*cast.age/cast.windup:.12+release*.88):0,attack=Math.sin(phase*Math.PI);
+            if(u.legs)u.legs.forEach((leg,i)=>leg.rotation.x=walk*(u.quadruped?[1,-1,-1,1][i]:i%2?1:-1)*(u.quadruped?.48:.65));
+            if(u.knees)u.knees.forEach((joint,i)=>joint.rotation.x=(u.quadruped?1:-1)*Math.max(0,gait.lift*(u.quadruped?[1,-1,-1,1][i]:i%2?1:-1))*(u.quadruped?.65:.85));
             if(u.elbows)u.elbows.forEach((joint,i)=>joint.rotation.x=slash?.3+attack*(i?.6:.25):.12+Math.abs(walk)*.18);
-            if(u.arms){const cls=u.heroClass;u.arms[0].rotation.x=slash?(cls==='ninja'?-1.3+attack:-.35*attack):-walk*.35;u.arms[1].rotation.x=slash?-1.9+attack*1.7:walk*.35;u.arms[1].rotation.z=slash?-.5-attack*.35:cls==='shaman'?-.18:0;u.torso.rotation.y=slash?(cls==='ninja'?1.5:.65)*Math.sin(phase*Math.PI*2):Math.sin(t*1.4)*.025;u.torso.rotation.x=slash?attack*.16:Math.sin(t*1.8)*.018;u.hips.position.y=1.6+Math.abs(walk)*.055-(slash?attack*.08:0);if(u.weapon)u.weapon.rotation.x=slash?-attack*.8:0;}
+            if(u.arms){const cls=u.heroClass;u.arms[0].rotation.x=slash?(cls==='ninja'?-1.3+attack:-.35*attack):walk*.3;u.arms[1].rotation.x=slash?-1.9+attack*1.7:-walk*.3;u.arms[1].rotation.z=slash?-.5-attack*.35:cls==='shaman'?-.18:0;u.torso.rotation.y=slash?(cls==='ninja'?1.5:.65)*Math.sin(phase*Math.PI*2):Math.sin(t*1.4)*.025-walk*.055;u.torso.rotation.x=slash?attack*.16:Math.sin(t*1.8)*.018+u.motion*.035;u.hips.rotation.z=slash?0:gait.sway;u.hips.position.y=1.6+gait.bob-(slash?attack*.08:0);if(u.weapon)u.weapon.rotation.x=slash?-attack*.8:0;}
             if(isHero&&u.arms&&slash>0){const p=HDRemaster.attackPose(player.heroClass,phase);u.torso.rotation.y=p.twist;u.torso.rotation.x=p.lean;u.arms[1].rotation.x=p.right;u.arms[0].rotation.x=p.left;u.elbows[1].rotation.x=p.elbow;u.hips.position.y=1.6+p.drop;u.weapon.rotation.x=-Math.sin(phase*Math.PI)*.55;}
             if(isHero&&u.arms){
                 const c=hd.channel,working=c&&['mining','fishing'].includes(c.kind),kind=working?c.kind:null;
@@ -11836,7 +11866,7 @@ const hdSoundSlider=document.getElementById('hd-sfx-volume');if(hdSoundSlider)hd
             if(cast&&u.quadruped&&u.body){const prep=Math.min(1,cast.age/cast.windup);u.body.scale.y=u.bodyRestY*(charging?1-prep*.14:1);if(u.head)u.head.rotation.x=charging?prep*.24:-Math.sin(release*Math.PI)*.2;if(!charging){obj.position.x+=Math.cos(angle)*Math.sin(release*Math.PI)*.55;obj.position.z+=Math.sin(angle)*Math.sin(release*Math.PI)*.55;}}
             if(data.hitFlash>0)obj.rotation.z=Math.sin(data.hitFlash*1.3)*.05;else obj.rotation.z=0;
             const bridge=isNearBridge(data.x)&&Math.abs(data.y-getRiverCenterY(data.x))<95?.64:0;
-            if(isHero&&player.adventure?.mounted){obj.position.y=1.3+bridge;if(u.legs)u.legs.forEach((leg,i)=>leg.rotation.z=i?-.3:.3);}else if(u.kind!=='spirit'){obj.position.y=bridge;if(isHero&&u.legs)u.legs.forEach(leg=>leg.rotation.z=0);}
+            if(isHero&&player.adventure?.mounted){obj.position.y=1.3+bridge;if(u.legs)u.legs.forEach((leg,i)=>{leg.rotation.z=i?-.3:.3;leg.rotation.x=-.2;});if(u.knees)u.knees.forEach(knee=>knee.rotation.x=-.65);}else if(u.kind!=='spirit'){obj.position.y=bridge;if(isHero&&u.legs)u.legs.forEach(leg=>leg.rotation.z=0);}
             obj.position.y+=Number(data.jumpHeight)||0;
             if(data.jumpHeight>0){if(u.isMount&&u.legs)u.legs.forEach((leg,i)=>leg.rotation.x=i<2?-.75:.55);if(isHero&&u.torso){u.torso.rotation.x=.22;u.arms.forEach(arm=>arm.rotation.x=-.55);}}
         }
@@ -11858,12 +11888,9 @@ const hdSoundSlider=document.getElementById('hd-sfx-volume');if(hdSoundSlider)hd
         const meadow=new T.InstancedMesh(meadowGeometry,meadowMat,720),fieldRocks=new T.InstancedMesh(geo('field-rock',()=>new T.DodecahedronGeometry(.45,0)),mat('#9c9e88',0,.95,'stone'),90),fieldPose=new T.Object3D(),fieldColor=new T.Color();meadow.frustumCulled=fieldRocks.frustumCulled=false;meadow.receiveShadow=true;meadow.count=fieldRocks.count=0;scene.add(meadow,fieldRocks);let fieldKey='';
         const profileBudget=profile;
         function updateField(px,pz){if(hdDungeonActive()){meadow.count=fieldRocks.count=0;fieldKey='';return;}const cx=Math.floor(px/12),cz=Math.floor(pz/12),profile=hdBiome(player.zone),key=player.zone+':'+cx+':'+cz+':'+hd.detail+':'+(hd.remasterArena?hd.remasterArena.x+','+hd.remasterArena.y:'none');if(key===fieldKey)return;fieldKey=key;const sparse=['snow','desert','ember','astral','highland'].includes(profile.theme),perCell=profileBudget().fieldDensity;let count=0,rocks=0;
-            for(let gx=-1;gx<=1;gx++)for(let gz=-1;gz<=1;gz++){const sx=cx+gx,sz=cz+gz,seed=sx*91.7+sz*53.3;for(let i=0;i<perCell;i++){const x=sx*12+hdNoise(seed+i*3.7)*12,z=sz*12+hdNoise(seed+i*9.1)*12,riverDistance=Math.abs(z*20-getRiverCenterY(x*20));if(isTownZone()&&HDTownLayout.reserved(x*20,z*20,12)||Math.abs(x)<3.2||Math.abs(z)<3.2||Math.hypot(x,z)<12.5||riverDistance<85||hd.remasterArena&&Math.hypot(x*20-hd.remasterArena.x,z*20-hd.remasterArena.y)<hd.remasterArena.radius)continue;const n=hdNoise(seed+i*7.3);if(sparse&&n<.65)continue;fieldPose.position.set(x,.01,z);fieldPose.rotation.set(0,n*6.28,0);fieldPose.scale.set(.7+n,.6+n*(sparse?.4:1.4),.7+n);fieldPose.updateMatrix();meadow.setMatrixAt(count,fieldPose.matrix);fieldColor.set(sparse?(profile.theme==='snow'?'#938b72':profile.theme==='ember'?'#766859':profile.theme==='astral'?'#81728b':profile.theme==='highland'?'#839085':'#a49b6c'):profile.theme==='blood'?'#926b61':n>.7?'#899754':'#527252');meadow.setColorAt(count++,fieldColor);if(i%8===0&&rocks<90){fieldPose.position.set(x,.08,z);fieldPose.rotation.set(n*.3,n*6.28,n*.4);fieldPose.scale.set(.5+n*1.4,.2+n*.45,.5+n);fieldPose.updateMatrix();fieldRocks.setMatrixAt(rocks++,fieldPose.matrix);}}}
+            for(let gx=-1;gx<=1;gx++)for(let gz=-1;gz<=1;gz++){const sx=cx+gx,sz=cz+gz,seed=sx*91.7+sz*53.3;for(let i=0;i<perCell;i++){const x=sx*12+hdNoise(seed+i*3.7)*12,z=sz*12+hdNoise(seed+i*9.1)*12,riverDistance=Math.abs(z*20-getRiverCenterY(x*20));if(HDFrontier.roadReserved(x*20,z*20,22,player.zone)||Math.abs(x*20)>HDFrontier.EDGE-30||Math.abs(z*20)>HDFrontier.EDGE-30||Math.hypot(x,z)<12.5||riverDistance<85||hd.remasterArena&&Math.hypot(x*20-hd.remasterArena.x,z*20-hd.remasterArena.y)<hd.remasterArena.radius)continue;const n=hdNoise(seed+i*7.3);if(sparse&&n<.65)continue;fieldPose.position.set(x,.01,z);fieldPose.rotation.set(0,n*6.28,0);fieldPose.scale.set(.7+n,.6+n*(sparse?.4:1.4),.7+n);fieldPose.updateMatrix();meadow.setMatrixAt(count,fieldPose.matrix);fieldColor.set(sparse?(profile.theme==='snow'?'#938b72':profile.theme==='ember'?'#766859':profile.theme==='astral'?'#81728b':profile.theme==='highland'?'#839085':'#a49b6c'):profile.theme==='blood'?'#926b61':n>.7?'#899754':'#527252');meadow.setColorAt(count++,fieldColor);if(i%8===0&&rocks<90){fieldPose.position.set(x,.08,z);fieldPose.rotation.set(n*.3,n*6.28,n*.4);fieldPose.scale.set(.5+n*1.4,.2+n*.45,.5+n);fieldPose.updateMatrix();fieldRocks.setMatrixAt(rocks++,fieldPose.matrix);}}}
             meadow.count=count;fieldRocks.count=rocks;meadow.instanceMatrix.needsUpdate=true;if(meadow.instanceColor)meadow.instanceColor.needsUpdate=true;fieldRocks.instanceMatrix.needsUpdate=true;}
-        const moteCount=hdMobileBudget()?28:64,moteArray=new Float32Array(moteCount*3),moteGeo=new T.BufferGeometry();moteGeo.setAttribute('position',new T.BufferAttribute(moteArray,3));
-        const moteMat=new T.PointsMaterial({color:'#f5dc9f',size:.075,transparent:true,opacity:.65,depthWrite:false,blending:T.AdditiveBlending,toneMapped:false});const motes=new T.Points(moteGeo,moteMat);motes.frustumCulled=false;scene.add(motes);
-        function ambience(t,px,pz){const profile=hdBiome(player.zone),enabled=prefs.effects&&hd.detail>0;motionStrength.value=prefs.effects?1:0;motionTime.value=t;motes.visible=enabled;
-            if(enabled){moteMat.color.set(profile.theme==='snow'?'#e3f8ff':profile.accent);for(let i=0;i<moteCount;i++){moteArray[i*3]=px+(hdNoise(i*3.1)-.5)*47+Math.sin(t*.2+i)*.5;moteArray[i*3+1]=(hdNoise(i*7.7)*7+t*(profile.theme==='snow'?-.25:.12)+70)%7;moteArray[i*3+2]=pz+(hdNoise(i*5.4)-.5)*43;}moteGeo.attributes.position.needsUpdate=true;}
+        function ambience(t,px,pz){motionStrength.value=prefs.effects?1:0;motionTime.value=t;
             const candidates=[];for(const obj of [...actors.values(),...staticObjects.values(),...battleLights.effects.map(s=>s.g),...supportLights.slots.map(s=>s.g)])if(obj.visible&&obj.userData.lightColor)candidates.push(obj);
             const distance=o=>(o.position.x-px)**2+(o.position.z-pz)**2;candidates.sort((a,b)=>distance(a)-distance(b));
             const lightBudget=!prefs.effects?0:hd.detail===0?1:mobile?1:3;fxLights.forEach((l,i)=>{const source=candidates[i],reach=source?.userData.combatLight?12:source?.userData.skillParts?10:source?.userData.metin?9:7;l.visible=true;const active=i<lightBudget&&!!source&&distance(source)<reach*reach;if(!active){l.intensity=0;return;}const u=source.userData,offset=u.lightOffset||{x:0,y:u.lightHeight||1,z:0};l.color.set(u.lightColor);l.position.copy(source.localToWorld(new T.Vector3(offset.x,offset.y,offset.z)));l.distance=reach;l.intensity=(u.combatLight?6:u.skillParts?4.5:u.metin?3.5:u.biomeType==='campfire'?4:2.5)*(hd.light==='night'?1:.65);});
